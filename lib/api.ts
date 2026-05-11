@@ -1,16 +1,25 @@
+import { getAdminToken } from './auth'
 import type {
+  AdminCategoryFilters,
+  AdminProductFilters,
   ApiCategory,
   ApiListResponse,
   ApiPaginatedResponse,
   ApiProduct,
   ApiProductDetail,
+  ApiValidationError,
+  CreateCategoryBody,
+  CreateProductBody,
+  LoginResponse,
   ProductFilters,
   ReviewBody,
+  UpdateCategoryBody,
+  UpdateProductBody,
 } from './types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.aleenza.store'
 const TENANT = process.env.NEXT_PUBLIC_API_TENANT ?? 'yaseen'
-const TOKEN = process.env.NEXT_PUBLIC_API_TOKEN
+const ENV_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN
 
 function buildHeaders(withAuth = false): Record<string, string> {
   const h: Record<string, string> = {
@@ -18,9 +27,65 @@ function buildHeaders(withAuth = false): Record<string, string> {
     Accept: 'application/json',
     'X-Tenant': TENANT,
   }
-  if (withAuth && TOKEN) h.Authorization = `Bearer ${TOKEN}`
+  if (withAuth) {
+    const token = getAdminToken() ?? ENV_TOKEN
+    if (token) h.Authorization = `Bearer ${token}`
+  }
   return h
 }
+
+// Throws ApiValidationError-shaped error for 422, plain Error for everything else
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (res.status === 422) {
+    const body = (await res.json()) as ApiValidationError
+    const err = new Error(body.message) as Error & { errors?: Record<string, string[]> }
+    err.errors = body.errors
+    throw err
+  }
+  if (!res.ok) throw new Error(`API error ${res.status}`)
+  if (res.status === 204) return undefined as T
+  return res.json() as Promise<T>
+}
+
+// ─── Public: Homepage ─────────────────────────────────────────────────────────
+
+export async function getFeaturedCategories(): Promise<ApiListResponse<ApiCategory>> {
+  const res = await fetch(`${BASE_URL}/api/categories/featured`, {
+    headers: buildHeaders(),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function getFeaturedProducts(): Promise<ApiListResponse<ApiProduct>> {
+  const res = await fetch(`${BASE_URL}/api/products/featured`, {
+    headers: buildHeaders(),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+// ─── Public: Categories ───────────────────────────────────────────────────────
+
+export async function getCategories(
+  featuredOnly = false
+): Promise<ApiListResponse<ApiCategory>> {
+  const url = `${BASE_URL}/api/categories${featuredOnly ? '?is_featured=1' : ''}`
+  const res = await fetch(url, { headers: buildHeaders(), cache: 'no-store' })
+  return handleResponse(res)
+}
+
+export async function getCategory(
+  idOrSlug: string | number
+): Promise<ApiCategory> {
+  const res = await fetch(`${BASE_URL}/api/categories/${idOrSlug}`, {
+    headers: buildHeaders(),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+// ─── Public: Products ─────────────────────────────────────────────────────────
 
 export async function getProducts(
   filters: ProductFilters = {}
@@ -33,8 +98,7 @@ export async function getProducts(
     headers: buildHeaders(),
     cache: 'no-store',
   })
-  if (!res.ok) throw new Error(`Products fetch failed: ${res.status}`)
-  return res.json()
+  return handleResponse(res)
 }
 
 export async function getProduct(
@@ -44,18 +108,10 @@ export async function getProduct(
     headers: buildHeaders(),
     cache: 'no-store',
   })
-  if (!res.ok) throw new Error(`Product fetch failed: ${res.status}`)
-  return res.json()
+  return handleResponse(res)
 }
 
-export async function getCategories(
-  featuredOnly = false
-): Promise<ApiListResponse<ApiCategory>> {
-  const url = `${BASE_URL}/api/categories${featuredOnly ? '?is_featured=1' : ''}`
-  const res = await fetch(url, { headers: buildHeaders(), cache: 'no-store' })
-  if (!res.ok) throw new Error(`Categories fetch failed: ${res.status}`)
-  return res.json()
-}
+// ─── Public: Reviews ─────────────────────────────────────────────────────────
 
 export async function postReview(
   productId: number,
@@ -66,6 +122,113 @@ export async function postReview(
     headers: buildHeaders(),
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`Review submit failed: ${res.status}`)
-  return res.json()
+  return handleResponse(res)
+}
+
+// ─── Admin: Auth ──────────────────────────────────────────────────────────────
+
+export async function adminLogin(
+  email: string,
+  password: string
+): Promise<LoginResponse> {
+  const res = await fetch(`${BASE_URL}/api/login`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify({ email, password }),
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Products ─────────────────────────────────────────────────────────
+
+export async function getAdminProducts(
+  filters: AdminProductFilters = {}
+): Promise<ApiPaginatedResponse<ApiProduct>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/admin/products?${params}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function createProduct(
+  body: CreateProductBody
+): Promise<ApiProduct> {
+  const res = await fetch(`${BASE_URL}/api/products`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+export async function updateProduct(
+  id: number,
+  body: UpdateProductBody
+): Promise<ApiProduct> {
+  const res = await fetch(`${BASE_URL}/api/products/${id}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+export async function deleteProduct(id: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/products/${id}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Categories ────────────────────────────────────────────────────────
+
+export async function getAdminCategories(
+  filters: AdminCategoryFilters = {}
+): Promise<ApiPaginatedResponse<ApiCategory>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/admin/categories?${params}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function createCategory(
+  body: CreateCategoryBody
+): Promise<ApiCategory> {
+  const res = await fetch(`${BASE_URL}/api/categories`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+export async function updateCategory(
+  id: number,
+  body: UpdateCategoryBody
+): Promise<ApiCategory> {
+  const res = await fetch(`${BASE_URL}/api/categories/${id}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/categories/${id}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
 }

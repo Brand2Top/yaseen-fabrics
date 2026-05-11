@@ -1,7 +1,11 @@
+// ─── Shared primitives ────────────────────────────────────────────────────────
+
 export interface ApiImage {
   id: number
   url: string
 }
+
+// ─── Category ─────────────────────────────────────────────────────────────────
 
 export interface ApiCategory {
   id: number
@@ -11,7 +15,11 @@ export interface ApiCategory {
   is_featured: boolean
   products_count: number
   image?: ApiImage | null
+  created_at?: string
+  updated_at?: string
 }
+
+// ─── Product ──────────────────────────────────────────────────────────────────
 
 export interface ApiProductCategory {
   id: number
@@ -50,6 +58,8 @@ export interface ApiProductDetail extends ApiProduct {
   notes: unknown[]
 }
 
+// ─── Pagination ───────────────────────────────────────────────────────────────
+
 export interface PaginationMeta {
   current_page: number
   last_page: number
@@ -72,6 +82,8 @@ export interface ApiListResponse<T> {
   data: T[]
 }
 
+// ─── Filters ──────────────────────────────────────────────────────────────────
+
 export type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'rating'
 
 export interface ProductFilters {
@@ -85,10 +97,64 @@ export interface ProductFilters {
   page?: number
 }
 
+export interface AdminProductFilters extends ProductFilters {
+  is_active?: 1 | 0
+}
+
+export interface AdminCategoryFilters {
+  search?: string
+  is_featured?: 1 | 0
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface LoginResponse {
+  token: string
+  user: {
+    id: number
+    name: string
+    email: string
+  }
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
 export interface ReviewBody {
   name: string
   email?: string
   phone?: string
   rating?: number
   message?: string
+}
+
+// ─── CRUD bodies ─────────────────────────────────────────────────────────────
+
+export interface CreateProductBody {
+  category_id: number
+  name: string
+  slug: string
+  description?: string | null
+  price: number
+  discounted_price?: number | null
+  stock: number
+  is_active: boolean
+  is_featured: boolean
+}
+
+export type UpdateProductBody = Partial<CreateProductBody>
+
+export interface CreateCategoryBody {
+  name: string
+  slug: string
+  description?: string | null
+  is_featured: boolean
+}
+
+export type UpdateCategoryBody = Partial<CreateCategoryBody>
+
+// ─── Errors ──────────────────────────────────────────────────────────────────
+
+export interface ApiValidationError {
+  message: string
+  errors: Record<string, string[]>
 }

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCart } from '@/context/cart-context'
 import { toast } from 'sonner'
-import { getProducts, getCategories } from '@/lib/api'
+import { getFeaturedProducts, getFeaturedCategories } from '@/lib/api'
 import type { ApiProduct, ApiCategory } from '@/lib/types'
 
 // Hero Section
@@ -67,7 +67,7 @@ function CollectionsSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getCategories()
+    getFeaturedCategories()
       .then((res) => setCategories(res.data.slice(0, 3)))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -144,8 +144,8 @@ function BestSellersSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getProducts({ is_featured: 1, per_page: 4, sort: 'rating' })
-      .then((res) => setProducts(res.data))
+    getFeaturedProducts()
+      .then((res) => setProducts(res.data.slice(0, 4)))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
