@@ -162,6 +162,43 @@ export interface CreateCategoryBody {
 
 export type UpdateCategoryBody = CreateCategoryBody
 
+// ─── Blog Posts ──────────────────────────────────────────────────────────────
+
+export interface ApiPost {
+  id: number
+  title: string
+  slug: string
+  excerpt?: string | null
+  reading_time?: number | null
+  is_published: boolean
+  published_at?: string | null
+  featured_image?: ApiImage | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiPostDetail extends ApiPost {
+  content: string
+}
+
+export interface PostFilters {
+  search?: string
+  per_page?: number
+  page?: number
+  is_published?: 1 | 0
+}
+
+export interface CreatePostBody {
+  title: string
+  slug?: string
+  excerpt?: string | null
+  content: string
+  is_published: boolean
+  published_at?: string | null
+}
+
+export type UpdatePostBody = CreatePostBody
+
 // ─── Media ───────────────────────────────────────────────────────────────────
 
 export interface ApiMedia {

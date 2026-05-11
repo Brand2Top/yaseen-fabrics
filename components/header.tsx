@@ -47,7 +47,7 @@ function Navbar() {
   const navLinks = [
     { label: 'Collections', href: '/shop' },
     { label: 'Best Sellers', href: '/shop' },
-    { label: 'Style Guides', href: '#guides' },
+    { label: 'Blog', href: '/blog' },
     { label: 'About', href: '#' },
   ]
 

@@ -7,19 +7,24 @@ import type {
   ApiListResponse,
   ApiMedia,
   ApiPaginatedResponse,
+  ApiPost,
+  ApiPostDetail,
   ApiProduct,
   ApiProductDetail,
   ApiValidationError,
   AuthUser,
   ChangePasswordBody,
   CreateCategoryBody,
+  CreatePostBody,
   CreateProductBody,
   LoginResponse,
+  PostFilters,
   ProductFilters,
   ReviewBody,
   ReviewFilters,
   ReviewStatus,
   UpdateCategoryBody,
+  UpdatePostBody,
   UpdateProductBody,
 } from './types'
 
@@ -356,6 +361,91 @@ export async function deleteAdminReview(id: number): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/reviews/${id}`, {
     method: 'DELETE',
     headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+// ─── Public: Posts ────────────────────────────────────────────────────────────
+
+export async function getPosts(
+  filters: PostFilters = {}
+): Promise<ApiPaginatedResponse<ApiPost>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/posts?${params}`, {
+    headers: buildHeaders(),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function getPost(slug: string): Promise<ApiPostDetail> {
+  const res = await fetch(`${BASE_URL}/api/posts/${slug}`, {
+    headers: buildHeaders(),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Posts ─────────────────────────────────────────────────────────────
+
+export async function getAdminPosts(
+  filters: PostFilters = {}
+): Promise<ApiPaginatedResponse<ApiPost>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/admin/posts?${params}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function getAdminPost(id: number): Promise<ApiPostDetail> {
+  const res = await fetch(`${BASE_URL}/api/admin/posts/${id}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function createPost(body: CreatePostBody): Promise<ApiPostDetail> {
+  const res = await fetch(`${BASE_URL}/api/posts`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+export async function updatePost(id: number, body: UpdatePostBody): Promise<ApiPostDetail> {
+  const res = await fetch(`${BASE_URL}/api/posts/${id}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+export async function deletePost(id: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/posts/${id}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+export async function uploadPostImage(file: File): Promise<{ url: string }> {
+  const form = new FormData()
+  form.append('image', file)
+  const res = await fetch(`${BASE_URL}/api/posts/upload-image`, {
+    method: 'POST',
+    headers: buildAuthHeaders(),
+    body: form,
   })
   return handleResponse(res)
 }

@@ -42,8 +42,8 @@ function StarPicker({
         >
           <Star
             className={`w-6 h-6 transition-colors ${display && star <= display
-                ? 'fill-amber-400 text-amber-400'
-                : 'text-zinc-300'
+              ? 'fill-amber-400 text-amber-400'
+              : 'text-zinc-300'
               }`}
           />
         </button>
@@ -306,8 +306,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       key={img.id}
                       onClick={() => setSelectedImage(i)}
                       className={`relative rounded-lg overflow-hidden aspect-square border-2 transition-all ${selectedImage === i
-                          ? 'border-zinc-900'
-                          : 'border-zinc-200 hover:border-zinc-400'
+                        ? 'border-zinc-900'
+                        : 'border-zinc-200 hover:border-zinc-400'
                         }`}
                     >
                       <img
@@ -344,8 +344,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                           <Star
                             key={i}
                             className={`w-4 h-4 ${i < Math.floor(product.average_rating)
-                                ? 'fill-amber-400 text-amber-400'
-                                : 'text-zinc-300'
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-zinc-300'
                               }`}
                           />
                         ))}
@@ -549,8 +549,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                   <Star
                                     key={i}
                                     className={`w-3 h-3 ${i < Math.floor(review.rating)
-                                        ? 'fill-amber-400 text-amber-400'
-                                        : 'text-zinc-300'
+                                      ? 'fill-amber-400 text-amber-400'
+                                      : 'text-zinc-300'
                                       }`}
                                   />
                                 ))}
