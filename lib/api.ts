@@ -32,6 +32,19 @@ import type {
   Enquiry,
   CreateEnquiryBody,
   EnquiryFilters,
+  CheckoutBody,
+  CheckoutResponse,
+  CouponValidationResult,
+  Order,
+  OrderDetail,
+  OrderStatusCounts,
+  OrderFilters,
+  OrderStatus,
+  Promotion,
+  CreatePromotionBody,
+  PromotionFilters,
+  ProductVariant,
+  CreateVariantBody,
 } from './types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.aleenza.store'
@@ -569,6 +582,166 @@ export async function markEnquiryUnread(id: number): Promise<Enquiry> {
 
 export async function deleteEnquiry(id: number): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/enquiries/${id}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+// ─── Public: Checkout & Coupons ───────────────────────────────────────────────
+
+export async function checkout(body: CheckoutBody): Promise<CheckoutResponse> {
+  const res = await fetch(`${BASE_URL}/api/checkout`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+export async function validateCoupon(
+  code: string,
+  items: { product_id: number; quantity: number }[]
+): Promise<CouponValidationResult> {
+  const res = await fetch(`${BASE_URL}/api/promotions/validate`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify({ code, items }),
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Orders ────────────────────────────────────────────────────────────
+
+export async function getOrders(
+  filters: OrderFilters = {}
+): Promise<ApiPaginatedResponse<Order>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/orders?${params}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function getOrderStatusCounts(): Promise<OrderStatusCounts> {
+  const res = await fetch(`${BASE_URL}/api/orders/status-counts`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function getOrder(id: number): Promise<OrderDetail> {
+  const res = await fetch(`${BASE_URL}/api/orders/${id}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return unwrapData(res)
+}
+
+export async function updateOrderStatus(
+  id: number,
+  status: OrderStatus
+): Promise<OrderDetail> {
+  const res = await fetch(`${BASE_URL}/api/orders/${id}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify({ status }),
+  })
+  return unwrapData(res)
+}
+
+// ─── Admin: Promotions ────────────────────────────────────────────────────────
+
+export async function getPromotions(
+  filters: PromotionFilters = {}
+): Promise<ApiPaginatedResponse<Promotion>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/promotions?${params}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function createPromotion(body: CreatePromotionBody): Promise<Promotion> {
+  const res = await fetch(`${BASE_URL}/api/promotions`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return unwrapData(res)
+}
+
+export async function updatePromotion(
+  id: number,
+  body: CreatePromotionBody
+): Promise<Promotion> {
+  const res = await fetch(`${BASE_URL}/api/promotions/${id}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return unwrapData(res)
+}
+
+export async function deletePromotion(id: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/promotions/${id}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Product Variants ──────────────────────────────────────────────────
+
+export async function getProductVariants(
+  productId: number
+): Promise<ApiPaginatedResponse<ProductVariant>> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/variants`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function createVariant(
+  productId: number,
+  body: CreateVariantBody
+): Promise<ProductVariant> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/variants`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return unwrapData(res)
+}
+
+export async function updateVariant(
+  productId: number,
+  variantId: number,
+  body: Partial<CreateVariantBody>
+): Promise<ProductVariant> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/variants/${variantId}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return unwrapData(res)
+}
+
+export async function deleteVariant(
+  productId: number,
+  variantId: number
+): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/variants/${variantId}`, {
     method: 'DELETE',
     headers: buildHeaders(true),
   })

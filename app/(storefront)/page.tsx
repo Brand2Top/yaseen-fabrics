@@ -154,6 +154,8 @@ function BestSellersSection() {
     const price = product.discounted_price ?? product.price
     addItem({
       id: String(product.id),
+      product_id: product.id,
+      product_variant_id: null,
       name: product.name,
       price,
       quantity: 1,

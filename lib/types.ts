@@ -292,3 +292,209 @@ export interface EnquiryFilters {
   per_page?: number
   page?: number
 }
+
+// ─── Checkout ─────────────────────────────────────────────────────────────────
+
+export interface CheckoutCustomer {
+  name: string
+  email: string
+  phone: string
+  address: string
+}
+
+export interface CheckoutItem {
+  product_id: number
+  product_variant_id: number | null
+  quantity: number
+}
+
+export interface CheckoutBody {
+  customer: CheckoutCustomer
+  items: CheckoutItem[]
+  shipping_method: string
+  shipping_cost: number
+  coupon_code?: string
+}
+
+export interface CheckoutResponse {
+  message: string
+  order_id: number
+  subtotal: number
+  discount_amount: number
+  shipping_cost: number
+  total_amount: number
+  promotion_applied: { code: string; description: string } | null
+}
+
+export interface CouponValidationResult {
+  valid: boolean
+  code: string
+  description?: string
+  discount_amount?: number
+  discount_type?: string
+  discount_value?: number
+  message?: string
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+
+export interface OrderCustomer {
+  id: number
+  name: string
+  email: string
+  phone: string
+  address: string
+}
+
+export interface OrderPromotion {
+  id: number
+  type: string
+  code?: string | null
+  name: string
+}
+
+export interface Order {
+  id: number
+  customer_id: number
+  customer: OrderCustomer
+  shipping_name: string
+  shipping_phone: string
+  shipping_address: string
+  shipping_method: string
+  shipping_cost: number
+  subtotal: number
+  discount_amount: number
+  total_amount: number
+  status: OrderStatus
+  promotion: OrderPromotion | null
+  items_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface OrderVariantAttribute {
+  attribute: string
+  value: string
+}
+
+export interface OrderItemVariant {
+  id: number
+  sku: string
+  price: number
+  attributes: OrderVariantAttribute[]
+}
+
+export interface OrderItemProduct {
+  id: number
+  name: string
+  slug: string
+  featured_image?: ApiImage | null
+}
+
+export interface OrderItem {
+  id: number
+  product_id: number
+  product_variant_id: number | null
+  product: OrderItemProduct
+  variant: OrderItemVariant | null
+  quantity: number
+  unit_price: number
+  total_price: number
+}
+
+export interface OrderDetail extends Order {
+  items: OrderItem[]
+}
+
+export interface OrderStatusCounts {
+  pending: number
+  processing: number
+  shipped: number
+  delivered: number
+  cancelled: number
+  total: number
+}
+
+export interface OrderFilters {
+  status?: OrderStatus
+  search?: string
+  date_from?: string
+  date_to?: string
+  per_page?: number
+  page?: number
+}
+
+// ─── Promotions ───────────────────────────────────────────────────────────────
+
+export type PromotionType = 'coupon' | 'auto_rule' | 'bundle'
+export type DiscountType = 'percentage' | 'fixed_amount'
+export type RuleType = 'quantity' | 'spend'
+
+export interface PromotionEligibleProduct {
+  type: 'category' | 'product'
+  id: number
+}
+
+export interface Promotion {
+  id: number
+  type: PromotionType
+  name: string
+  code?: string | null
+  discount_type: DiscountType
+  discount_value: number
+  max_discount_amount?: number | null
+  ends_at?: string | null
+  max_uses?: number | null
+  max_uses_per_customer?: number | null
+  rule_type?: RuleType | null
+  rule_quantity?: number | null
+  rule_spend_amount?: number | null
+  rule_category_constraint?: 'same' | 'any' | null
+  bundle_buy_qty?: number | null
+  bundle_get_qty?: number | null
+  bundle_same_product?: boolean | null
+  bundle_free_product_id?: number | null
+  is_active: boolean
+  eligible_products?: PromotionEligibleProduct[]
+  created_at: string
+  updated_at: string
+}
+
+export type CreatePromotionBody = Omit<Promotion, 'id' | 'is_active' | 'created_at' | 'updated_at'>
+
+export interface PromotionFilters {
+  type?: PromotionType
+  is_active?: boolean
+  search?: string
+  per_page?: number
+  page?: number
+}
+
+// ─── Product Variants ─────────────────────────────────────────────────────────
+
+export interface VariantAttribute {
+  attribute: string
+  value: string
+}
+
+export interface ProductVariant {
+  id: number
+  product_id: number
+  sku: string
+  price: number
+  stock: number
+  is_active: boolean
+  attributes: VariantAttribute[]
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateVariantBody {
+  sku: string
+  price: number
+  stock: number
+  is_active: boolean
+  attribute_value_ids: number[]
+}

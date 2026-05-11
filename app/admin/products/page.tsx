@@ -63,6 +63,10 @@ import {
   createNote,
   updateNote,
   deleteNote,
+  getProductVariants,
+  createVariant,
+  updateVariant,
+  deleteVariant,
 } from '@/lib/api'
 import type {
   ApiProduct,
@@ -77,6 +81,8 @@ import type {
   ProductNote,
   NoteStatus,
   CreateNoteBody,
+  ProductVariant,
+  CreateVariantBody,
 } from '@/lib/types'
 
 const PER_PAGE = 15
@@ -97,7 +103,7 @@ const EMPTY_FORM: CreateProductBody = {
 }
 
 type ActiveFilter = 'all' | '1' | '0'
-type ModalTab = 'general' | 'media' | 'reviews' | 'notes'
+type ModalTab = 'general' | 'media' | 'reviews' | 'notes' | 'skus'
 type ReviewFilterTab = ReviewStatus | 'all'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -161,6 +167,15 @@ function ProductFormModal({
   const [savingNote, setSavingNote] = useState(false)
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null)
 
+  // ─── SKUs tab ────────────────────────────────────
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [variantsLoading, setVariantsLoading] = useState(false)
+  const [variantForm, setVariantForm] = useState<CreateVariantBody>({ sku: '', price: 0, stock: 0, is_active: true, attribute_value_ids: [] })
+  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null)
+  const [showVariantForm, setShowVariantForm] = useState(false)
+  const [savingVariant, setSavingVariant] = useState(false)
+  const [deletingVariantId, setDeletingVariantId] = useState<number | null>(null)
+
   // ─── Init on open / close ──────────────────────
   useEffect(() => {
     if (!open) {
@@ -172,6 +187,10 @@ function ProductFormModal({
       setShowNoteForm(false)
       setEditingNote(null)
       setNoteForm({ title: '', content: '', status: 'Private' })
+      setVariants([])
+      setShowVariantForm(false)
+      setEditingVariant(null)
+      setVariantForm({ sku: '', price: 0, stock: 0, is_active: true, attribute_value_ids: [] })
       setFeaturedPreview(null)
       setGalleryPreviews([])
       return
@@ -235,6 +254,16 @@ function ProductFormModal({
       .then((res) => setNotes(res.data))
       .catch(() => {})
       .finally(() => setNotesLoading(false))
+  }, [activeTab, productId])
+
+  // Load variants when switching to SKUs tab
+  useEffect(() => {
+    if (activeTab !== 'skus' || !productId) return
+    setVariantsLoading(true)
+    getProductVariants(productId)
+      .then((res) => setVariants(res.data))
+      .catch(() => {})
+      .finally(() => setVariantsLoading(false))
   }, [activeTab, productId])
 
   // ─── General handlers ──────────────────────────
@@ -429,6 +458,66 @@ function ProductFormModal({
     setNoteForm({ title: '', content: '', status: 'Private' })
   }
 
+  // ─── Variant handlers ──────────────────────────
+  const handleSaveVariant = async () => {
+    if (!productId) return
+    if (!variantForm.sku.trim()) {
+      toast.error('SKU is required')
+      return
+    }
+    setSavingVariant(true)
+    try {
+      if (editingVariant) {
+        const updated = await updateVariant(productId, editingVariant.id, variantForm)
+        setVariants((prev) => prev.map((v) => (v.id === editingVariant.id ? updated : v)))
+        toast.success('Variant updated')
+      } else {
+        const created = await createVariant(productId, variantForm)
+        setVariants((prev) => [...prev, created])
+        toast.success('Variant added')
+      }
+      setShowVariantForm(false)
+      setEditingVariant(null)
+      setVariantForm({ sku: '', price: 0, stock: 0, is_active: true, attribute_value_ids: [] })
+    } catch {
+      toast.error('Failed to save variant')
+    } finally {
+      setSavingVariant(false)
+    }
+  }
+
+  const handleDeleteVariant = async (id: number) => {
+    if (!productId) return
+    setDeletingVariantId(id)
+    try {
+      await deleteVariant(productId, id)
+      setVariants((prev) => prev.filter((v) => v.id !== id))
+      toast.success('Variant deleted')
+    } catch {
+      toast.error('Failed to delete variant')
+    } finally {
+      setDeletingVariantId(null)
+    }
+  }
+
+  const startEditVariant = (variant: ProductVariant) => {
+    setEditingVariant(variant)
+    setVariantForm({
+      sku: variant.sku,
+      price: variant.price,
+      stock: variant.stock,
+      is_active: variant.is_active,
+      attribute_value_ids: [],
+    })
+    setShowVariantForm(true)
+  }
+
+  const cancelVariantForm = () => {
+    setShowVariantForm(false)
+    setEditingVariant(null)
+    setVariantForm({ sku: '', price: 0, stock: 0, is_active: true, attribute_value_ids: [] })
+  }
+
   // ─── Featured image display logic ─────────────
   const featuredImgSrc = uploadingFeatured && featuredPreview
     ? featuredPreview
@@ -447,11 +536,12 @@ function ProductFormModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ModalTab)}>
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="media" disabled={!productId}>Media</TabsTrigger>
             <TabsTrigger value="reviews" disabled={!productId}>Reviews</TabsTrigger>
             <TabsTrigger value="notes" disabled={!productId}>Notes</TabsTrigger>
+            <TabsTrigger value="skus" disabled={!productId}>SKUs</TabsTrigger>
           </TabsList>
 
           {/* ── General ─────────────────────────────── */}
@@ -987,6 +1077,176 @@ function ProductFormModal({
                   >
                     <Plus size={13} />
                     Add Note
+                  </button>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── SKUs ────────────────────────────────── */}
+          <TabsContent value="skus" className="pt-4">
+            {variantsLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {variants.length === 0 && !showVariantForm && (
+                  <div className="text-center py-10 text-zinc-500 text-sm">
+                    <p className="mb-1">No SKUs yet</p>
+                    <p className="text-xs text-zinc-400">Add variants for different sizes, lengths, or options</p>
+                  </div>
+                )}
+
+                {variants.map((variant) => (
+                  <div key={variant.id} className="border border-zinc-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <span className="text-sm font-medium text-zinc-900 font-mono">{variant.sku}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                            variant.is_active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-zinc-100 text-zinc-600'
+                          }`}>
+                            {variant.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs text-zinc-600">
+                          <span>
+                            <span className="text-zinc-400">Price:</span>{' '}
+                            <span className="font-medium text-zinc-900">Rs {variant.price.toLocaleString()}</span>
+                          </span>
+                          <span>
+                            <span className="text-zinc-400">Stock:</span>{' '}
+                            <span className={`font-medium ${
+                              variant.stock === 0 ? 'text-red-600' : variant.stock <= 10 ? 'text-amber-600' : 'text-zinc-900'
+                            }`}>{variant.stock}</span>
+                          </span>
+                        </div>
+                        {variant.attributes.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {variant.attributes.map((attr, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded"
+                              >
+                                {attr.attribute}: {attr.value}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => startEditVariant(variant)}
+                          className="p-1.5 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteVariant(variant.id)}
+                          disabled={deletingVariantId === variant.id}
+                          className="p-1.5 rounded hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                          title="Delete"
+                        >
+                          {deletingVariantId === variant.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <Trash2 size={13} />
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Inline create/edit form */}
+                {showVariantForm ? (
+                  <div className="border border-zinc-200 rounded-lg p-4 bg-zinc-50 space-y-3">
+                    <p className="text-xs font-semibold text-zinc-700">
+                      {editingVariant ? 'Edit SKU' : 'New SKU'}
+                    </p>
+                    <div>
+                      <input
+                        value={variantForm.sku}
+                        onChange={(e) => setVariantForm((p) => ({ ...p, sku: e.target.value.toUpperCase() }))}
+                        placeholder="SKU *"
+                        className="w-full text-sm font-mono border border-zinc-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-rose-900/20 focus:border-rose-900 transition-colors"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-zinc-500 block mb-1">Price (Rs) *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={variantForm.price || ''}
+                          onChange={(e) => setVariantForm((p) => ({ ...p, price: parseFloat(e.target.value) || 0 }))}
+                          placeholder="0"
+                          className="w-full text-sm border border-zinc-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-rose-900/20 focus:border-rose-900 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-zinc-500 block mb-1">Stock *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={variantForm.stock || ''}
+                          onChange={(e) => setVariantForm((p) => ({ ...p, stock: parseInt(e.target.value) || 0 }))}
+                          placeholder="0"
+                          className="w-full text-sm border border-zinc-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-rose-900/20 focus:border-rose-900 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-500">Status:</span>
+                      {[true, false].map((active) => (
+                        <button
+                          key={String(active)}
+                          type="button"
+                          onClick={() => setVariantForm((p) => ({ ...p, is_active: active }))}
+                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                            variantForm.is_active === active
+                              ? 'bg-zinc-900 text-white border-zinc-900'
+                              : 'border-zinc-200 text-zinc-600 hover:border-zinc-400'
+                          }`}
+                        >
+                          {active ? 'Active' : 'Inactive'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveVariant}
+                        disabled={savingVariant}
+                        className="bg-rose-900 hover:bg-rose-950 text-white text-xs h-8 gap-1.5"
+                      >
+                        {savingVariant && <Loader2 size={12} className="animate-spin" />}
+                        {editingVariant ? 'Update' : 'Add SKU'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={cancelVariantForm}
+                        disabled={savingVariant}
+                        className="text-xs h-8"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowVariantForm(true)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-500 border border-dashed border-zinc-200 rounded-lg hover:border-zinc-400 hover:text-zinc-700 transition-colors"
+                  >
+                    <Plus size={13} />
+                    Add SKU
                   </button>
                 )}
               </div>

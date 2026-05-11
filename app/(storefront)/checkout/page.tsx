@@ -1,331 +1,405 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from '@/components/ui/radio-group'
+import Image from 'next/image'
+import { motion } from 'framer-motion'
+import { CheckCircle, Loader2, Tag } from 'lucide-react'
+import { toast } from 'sonner'
+import { useCart } from '@/context/cart-context'
+import { checkout } from '@/lib/api'
+import type { CheckoutCustomer, CheckoutResponse } from '@/lib/types'
 
-const checkoutItems = [
-  {
-    id: 1,
-    name: 'Royal Egyptian Cotton',
-    price: 8499,
-    quantity: 1,
-    length: '5m',
-    color: 'Navy',
-    image: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=80&h=80&fit=crop',
-  },
-  {
-    id: 2,
-    name: 'Premium Lawn Collection',
-    price: 4299,
-    quantity: 2,
-    length: '4.5m',
-    color: 'Sky Blue',
-    image: 'https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=80&h=80&fit=crop',
-  },
-]
+// ─── Form state ───────────────────────────────────────────────────────────────
+
+interface FormFields {
+  name: string
+  email: string
+  phone: string
+  address: string
+}
+
+type FormErrors = Partial<Record<keyof FormFields, string>>
+
+const EMPTY_FORM: FormFields = { name: '', email: '', phone: '', address: '' }
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CheckoutPage() {
-  const [formData, setFormData] = useState({
-    email: '',
-    phone: '',
-    firstName: '',
-    lastName: '',
-    address: '',
-    city: '',
-    postalCode: '',
-  })
+  const router = useRouter()
+  const { items, subtotal, total, coupon, clearCart } = useCart()
 
-  const [shippingMethod, setShippingMethod] = useState('standard')
-  const [paymentMethod, setPaymentMethod] = useState('cod')
-  const [promoCode, setPromoCode] = useState('')
+  const [form, setForm] = useState<FormFields>(EMPTY_FORM)
+  const [errors, setErrors] = useState<FormErrors>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [orderResult, setOrderResult] = useState<CheckoutResponse | null>(null)
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+  // Redirect to shop if cart is empty
+  useEffect(() => {
+    if (items.length === 0 && !orderResult) {
+      router.replace('/shop')
+    }
+  }, [items.length, orderResult, router])
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  const set = <K extends keyof FormFields>(key: K, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    setErrors((prev) => ({ ...prev, [key]: undefined }))
   }
 
-  const subtotal = checkoutItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const shippingCost = shippingMethod === 'express' ? 500 : 0
-  const total = subtotal + shippingCost
+  const validate = (): boolean => {
+    const next: FormErrors = {}
+    if (!form.name.trim()) next.name = 'Full name is required'
+    if (!form.email.trim()) {
+      next.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      next.email = 'Enter a valid email address'
+    }
+    if (!form.phone.trim()) next.phone = 'Phone number is required'
+    if (!form.address.trim()) next.address = 'Delivery address is required'
+    setErrors(next)
+    return Object.keys(next).length === 0
+  }
+
+  const placeOrder = async () => {
+    if (!validate()) return
+
+    setSubmitting(true)
+    try {
+      const customer: CheckoutCustomer = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+      }
+      const result = await checkout({
+        customer,
+        items: items.map((i) => ({
+          product_id: i.product_id,
+          product_variant_id: i.product_variant_id ?? null,
+          quantity: i.quantity,
+        })),
+        shipping_method: 'Standard Delivery',
+        shipping_cost: 0,
+        ...(coupon?.code ? { coupon_code: coupon.code } : {}),
+      })
+      clearCart()
+      setOrderResult(result)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      toast.error(message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    placeOrder()
+  }
+
+  // ─── Input class helper ────────────────────────────────────────────────────
+
+  const inputCls = (field: keyof FormFields) =>
+    `w-full px-3.5 py-2.5 text-sm border rounded-lg bg-white text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-rose-900/20 focus:border-rose-900 transition-colors ${
+      errors[field] ? 'border-red-400' : 'border-zinc-200'
+    }`
+
+  // ─── Success state ─────────────────────────────────────────────────────────
+
+  if (orderResult) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4 py-16">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="bg-white border border-zinc-200 rounded-xl p-8 sm:p-12 max-w-md w-full text-center shadow-sm"
+        >
+          <div className="flex justify-center mb-5">
+            <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center">
+              <CheckCircle size={40} className="text-green-600" />
+            </div>
+          </div>
+
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-zinc-900 mb-2">
+            Order Placed Successfully!
+          </h1>
+          <p className="text-zinc-500 text-sm mb-8">
+            Order #{orderResult.order_id}
+          </p>
+
+          {/* Final amounts */}
+          <div className="space-y-2 text-sm mb-8 border-t border-zinc-100 pt-6">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Subtotal</span>
+              <span className="font-medium text-zinc-900">
+                Rs {orderResult.subtotal.toLocaleString()}
+              </span>
+            </div>
+
+            {orderResult.discount_amount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Discount</span>
+                <span className="font-medium text-green-700">
+                  − Rs {orderResult.discount_amount.toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Shipping</span>
+              <span className="font-medium text-zinc-900">Free</span>
+            </div>
+
+            <div className="flex justify-between pt-3 border-t border-zinc-100 mt-2">
+              <span className="font-semibold text-zinc-900">Total</span>
+              <span className="font-serif font-bold text-xl text-zinc-900">
+                Rs {orderResult.total_amount.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          <Link
+            href="/shop"
+            className="inline-flex items-center justify-center px-6 py-3 text-sm font-semibold text-white bg-rose-900 hover:bg-rose-950 rounded-lg transition-colors w-full"
+          >
+            Continue Shopping
+          </Link>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // ─── Main checkout layout ──────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* Minimal Header */}
-      <div className="bg-white border-b border-zinc-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <Link href="/" className="font-serif text-xl text-zinc-900 hover:text-zinc-600">
-            Yaseen Fabrics
-          </Link>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Form (60%) */}
+        {/* Page title */}
+        <div className="mb-8">
+          <p className="text-xs font-semibold tracking-widest text-rose-900 uppercase mb-2">
+            Checkout
+          </p>
+          <h1 className="font-serif text-3xl sm:text-4xl font-bold text-zinc-900">
+            Complete Your Order
+          </h1>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-8 gap-8 items-start">
+          {/* ─── Left: Customer Details (5/8) ─────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-2 space-y-6"
+            transition={{ duration: 0.45 }}
+            className="lg:col-span-5"
           >
-            {/* Contact Section */}
-            <div className="bg-white rounded-lg p-6 sm:p-8 border border-zinc-200 hover:shadow-md transition-shadow duration-300">
-              <h2 className="font-serif text-xl font-bold text-zinc-900 mb-6">Contact Information</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 sm:col-span-1">
-                  <Label htmlFor="email" className="text-sm font-medium text-zinc-900">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="your@email.com"
-                    className="mt-2 border-zinc-300"
-                  />
-                </div>
-                <div className="col-span-2 sm:col-span-1">
-                  <Label htmlFor="phone" className="text-sm font-medium text-zinc-900">
-                    Mobile Phone
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="+92 300 1234567"
-                    className="mt-2 border-zinc-300"
-                  />
-                </div>
-              </div>
-            </div>
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-8 shadow-sm">
+                <h2 className="font-serif text-xl font-bold text-zinc-900 mb-6">
+                  Customer Details
+                </h2>
 
-            {/* Delivery Section */}
-            <div className="bg-white rounded-lg p-6 sm:p-8 border border-zinc-200 hover:shadow-md transition-shadow duration-300">
-              <h2 className="font-serif text-xl font-bold text-zinc-900 mb-6">Delivery Address</h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-5">
+                  {/* Full Name */}
                   <div>
-                    <Label htmlFor="firstName" className="text-sm font-medium text-zinc-900">
-                      First Name
-                    </Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      placeholder="Muhammad"
-                      className="mt-2 border-zinc-300"
+                    <label className="block text-sm font-medium text-zinc-900 mb-1.5">
+                      Full Name <span className="text-rose-900">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => set('name', e.target.value)}
+                      placeholder="Muhammad Ali"
+                      className={inputCls('name')}
                     />
+                    {errors.name && (
+                      <p className="mt-1 text-xs text-red-600">{errors.name}</p>
+                    )}
                   </div>
-                  <div>
-                    <Label htmlFor="lastName" className="text-sm font-medium text-zinc-900">
-                      Last Name
-                    </Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      placeholder="Khan"
-                      className="mt-2 border-zinc-300"
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <Label htmlFor="address" className="text-sm font-medium text-zinc-900">
-                    Street Address
-                  </Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    placeholder="123 Main Street"
-                    className="mt-2 border-zinc-300"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                  {/* Email */}
                   <div>
-                    <Label htmlFor="city" className="text-sm font-medium text-zinc-900">
-                      City
-                    </Label>
-                    <Input
-                      id="city"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleInputChange}
-                      placeholder="Karachi"
-                      className="mt-2 border-zinc-300"
+                    <label className="block text-sm font-medium text-zinc-900 mb-1.5">
+                      Email <span className="text-rose-900">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => set('email', e.target.value)}
+                      placeholder="you@example.com"
+                      className={inputCls('email')}
                     />
+                    {errors.email && (
+                      <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                    )}
                   </div>
+
+                  {/* Phone */}
                   <div>
-                    <Label htmlFor="postalCode" className="text-sm font-medium text-zinc-900">
-                      Postal Code
-                    </Label>
-                    <Input
-                      id="postalCode"
-                      name="postalCode"
-                      value={formData.postalCode}
-                      onChange={handleInputChange}
-                      placeholder="75500"
-                      className="mt-2 border-zinc-300"
+                    <label className="block text-sm font-medium text-zinc-900 mb-1.5">
+                      Phone <span className="text-rose-900">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={(e) => set('phone', e.target.value)}
+                      placeholder="+92 300 1234567"
+                      className={inputCls('phone')}
                     />
+                    {errors.phone && (
+                      <p className="mt-1 text-xs text-red-600">{errors.phone}</p>
+                    )}
+                  </div>
+
+                  {/* Delivery Address */}
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-900 mb-1.5">
+                      Delivery Address <span className="text-rose-900">*</span>
+                    </label>
+                    <textarea
+                      value={form.address}
+                      onChange={(e) => set('address', e.target.value)}
+                      placeholder="House #, Street, City, Province"
+                      rows={3}
+                      className={`${inputCls('address')} resize-none`}
+                    />
+                    {errors.address && (
+                      <p className="mt-1 text-xs text-red-600">{errors.address}</p>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Shipping Method */}
-            <div className="bg-white rounded-lg p-6 sm:p-8 border border-zinc-200 hover:shadow-md transition-shadow duration-300">
-              <h2 className="font-serif text-xl font-bold text-zinc-900 mb-6">Shipping Method</h2>
-              <RadioGroup value={shippingMethod} onValueChange={setShippingMethod}>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 p-3 border border-zinc-200 rounded-lg cursor-pointer hover:border-zinc-300">
-                    <RadioGroupItem value="standard" id="standard" />
-                    <Label htmlFor="standard" className="flex-1 cursor-pointer font-medium text-zinc-900">
-                      <div className="flex items-center justify-between">
-                        <span>Standard Delivery</span>
-                        <span className="text-sm font-normal text-green-700">Free</span>
-                      </div>
-                      <p className="text-xs text-zinc-600 font-normal mt-1">3-5 business days</p>
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-3 p-3 border border-zinc-200 rounded-lg cursor-pointer hover:border-zinc-300">
-                    <RadioGroupItem value="express" id="express" />
-                    <Label htmlFor="express" className="flex-1 cursor-pointer font-medium text-zinc-900">
-                      <div className="flex items-center justify-between">
-                        <span>Express Delivery</span>
-                        <span className="text-sm font-normal text-zinc-900">Rs 500</span>
-                      </div>
-                      <p className="text-xs text-zinc-600 font-normal mt-1">1-2 business days</p>
-                    </Label>
-                  </div>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* Payment Method */}
-            <div className="bg-white rounded-lg p-6 sm:p-8 border border-zinc-200 hover:shadow-md transition-shadow duration-300">
-              <h2 className="font-serif text-xl font-bold text-zinc-900 mb-6">Payment Method</h2>
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 p-3 border border-zinc-200 rounded-lg cursor-pointer hover:border-zinc-300">
-                    <RadioGroupItem value="cod" id="cod" />
-                    <Label htmlFor="cod" className="flex-1 cursor-pointer font-medium text-zinc-900">
-                      Cash on Delivery (COD)
-                      <p className="text-xs text-zinc-600 font-normal mt-1">Pay when you receive your order</p>
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-3 p-3 border border-zinc-200 rounded-lg cursor-pointer hover:border-zinc-300">
-                    <RadioGroupItem value="card" id="card" />
-                    <Label htmlFor="card" className="flex-1 cursor-pointer font-medium text-zinc-900">
-                      Credit/Debit Card
-                      <p className="text-xs text-zinc-600 font-normal mt-1">Secure payment with your card</p>
-                    </Label>
-                  </div>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* Complete Order Button */}
-            <button className="w-full bg-rose-900 text-white py-4 rounded-lg font-medium text-lg hover:bg-rose-950 transition-all duration-300 shadow-md hover:shadow-lg">
-              Complete Order
-            </button>
+              {/* Place Order — visible on mobile below the form card */}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-4 text-base font-semibold text-white bg-rose-900 hover:bg-rose-950 rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed lg:hidden"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Placing Order…
+                  </>
+                ) : (
+                  'Place Order'
+                )}
+              </button>
+            </form>
           </motion.div>
 
-          {/* Right: Order Summary (40%) */}
+          {/* ─── Right: Order Summary (3/8) ────────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:sticky lg:top-24 lg:h-fit"
+            transition={{ duration: 0.45 }}
+            className="lg:col-span-3 lg:sticky lg:top-24"
           >
-            <div className="bg-white border border-zinc-200 rounded-lg p-6 sm:p-8 space-y-6 hover:shadow-md transition-shadow duration-300">
-              <h2 className="font-serif text-xl font-bold text-zinc-900">Order Summary</h2>
+            <div className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-8 shadow-sm space-y-6">
+              <h2 className="font-serif text-xl font-bold text-zinc-900">
+                Order Summary
+              </h2>
 
-              {/* Items */}
-              <div className="space-y-4 max-h-64 overflow-y-auto">
-                {checkoutItems.map((item) => (
-                  <div key={item.id} className="flex gap-4 pb-4 border-b border-zinc-200">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-16 h-16 object-cover rounded bg-white"
-                    />
+              {/* Cart items */}
+              <div className="space-y-4">
+                {items.map((item) => (
+                  <div key={item.id} className="flex gap-3">
+                    {item.image ? (
+                      <Image
+                        src={item.image}
+                        alt={item.name}
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 object-cover rounded flex-shrink-0 bg-zinc-100"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded bg-zinc-100 flex-shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-zinc-900 line-clamp-2">
                         {item.name}
                       </p>
-                      <p className="text-xs text-zinc-600 mt-1">
-                        Qty: {item.quantity}
-                      </p>
-                      <p className="text-sm font-serif text-zinc-900 mt-2">
-                        Rs {(item.price * item.quantity).toLocaleString()}
+                      {item.length && (
+                        <p className="text-xs text-zinc-500 mt-0.5">{item.length}</p>
+                      )}
+                      <p className="text-xs text-zinc-500 mt-0.5">
+                        {item.quantity} × Rs {item.price.toLocaleString()}
                       </p>
                     </div>
+                    <p className="text-sm font-medium text-zinc-900 flex-shrink-0">
+                      Rs {(item.price * item.quantity).toLocaleString()}
+                    </p>
                   </div>
                 ))}
               </div>
 
-              {/* Promo Code */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Promo code"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-zinc-300 rounded text-sm placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 bg-white"
-                />
-                <button className="px-4 py-2 text-sm font-medium text-zinc-900 border border-zinc-300 rounded hover:bg-white transition-colors">
-                  Apply
-                </button>
-              </div>
+              <div className="border-t border-zinc-200" />
 
-              {/* Cost Breakdown */}
-              <div className="space-y-3 py-4 border-t border-zinc-300">
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-700">Subtotal</span>
-                  <span className="font-medium text-zinc-900">Rs {subtotal.toLocaleString()}</span>
+              {/* Coupon badge */}
+              {coupon && coupon.valid && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-sm">
+                  <Tag size={14} className="text-green-700 flex-shrink-0" />
+                  <span className="font-medium text-green-800">{coupon.code}</span>
+                  {coupon.description && (
+                    <span className="text-green-700 truncate">{coupon.description}</span>
+                  )}
                 </div>
+              )}
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-700">Shipping</span>
+              {/* Cost breakdown */}
+              <div className="space-y-2.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Subtotal</span>
                   <span className="font-medium text-zinc-900">
-                    {shippingCost === 0 ? 'Free' : `Rs ${shippingCost}`}
+                    Rs {subtotal.toLocaleString()}
                   </span>
                 </div>
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-700">Discount</span>
-                  <span className="font-medium text-green-700">—</span>
+                {coupon && coupon.discountAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Discount</span>
+                    <span className="font-medium text-green-700">
+                      − Rs {coupon.discountAmount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Shipping</span>
+                  <span className="font-medium text-green-700">Free</span>
                 </div>
               </div>
 
+              <div className="border-t border-zinc-200" />
+
               {/* Total */}
-              <div className="flex justify-between pt-4 border-t border-zinc-300">
-                <span className="font-serif text-lg text-zinc-900">Total</span>
+              <div className="flex justify-between items-center">
+                <span className="font-serif text-base font-semibold text-zinc-900">Total</span>
                 <span className="font-serif text-2xl font-bold text-zinc-900">
                   Rs {total.toLocaleString()}
                 </span>
               </div>
 
-              <p className="text-xs text-zinc-600 italic">
-                Taxes included. Shipping and discounts calculated at checkout.
-              </p>
+              {/* Place Order button — desktop */}
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={placeOrder}
+                className="hidden lg:flex w-full items-center justify-center gap-2 px-6 py-4 text-base font-semibold text-white bg-rose-900 hover:bg-rose-950 rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Placing Order…
+                  </>
+                ) : (
+                  'Place Order'
+                )}
+              </button>
             </div>
           </motion.div>
         </div>
