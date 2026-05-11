@@ -108,13 +108,23 @@ export interface AdminCategoryFilters {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+export interface AuthUser {
+  id: number
+  name: string
+  email: string
+  last_login_at?: string | null
+  created_at?: string
+}
+
 export interface LoginResponse {
   token: string
-  user: {
-    id: number
-    name: string
-    email: string
-  }
+  user: AuthUser
+}
+
+export interface ChangePasswordBody {
+  current_password: string
+  password: string
+  password_confirmation: string
 }
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────

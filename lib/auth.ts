@@ -5,6 +5,8 @@ export interface AdminUser {
   id: number
   name: string
   email: string
+  last_login_at?: string | null
+  created_at?: string
 }
 
 export function getAdminToken(): string | null {
@@ -31,4 +33,23 @@ export function getAdminUser(): AdminUser | null {
   } catch {
     return null
   }
+}
+
+export function getDeviceName(): string {
+  if (typeof window === 'undefined') return 'Web Browser'
+  const ua = navigator.userAgent
+  let browser = 'Browser'
+  if (ua.includes('Edg/')) browser = 'Edge'
+  else if (ua.includes('Chrome')) browser = 'Chrome'
+  else if (ua.includes('Firefox')) browser = 'Firefox'
+  else if (ua.includes('Safari')) browser = 'Safari'
+
+  let os = 'Unknown OS'
+  if (ua.includes('Windows')) os = 'Windows'
+  else if (ua.includes('Macintosh') || ua.includes('Mac OS X')) os = 'Mac'
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS'
+  else if (ua.includes('Android')) os = 'Android'
+  else if (ua.includes('Linux')) os = 'Linux'
+
+  return `${browser} on ${os}`
 }

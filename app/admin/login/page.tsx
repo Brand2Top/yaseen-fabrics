@@ -1,15 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { adminLogin } from '@/lib/api'
-import { setAdminSession } from '@/lib/auth'
+import { setAdminSession, getDeviceName } from '@/lib/auth'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -18,26 +18,47 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [retryAfter, setRetryAfter] = useState(0) // seconds remaining on rate-limit
+
+  // Countdown timer for rate-limited state
+  useEffect(() => {
+    if (retryAfter <= 0) return
+    const id = setInterval(() => {
+      setRetryAfter((s) => {
+        if (s <= 1) { clearInterval(id); return 0 }
+        return s - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [retryAfter])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (retryAfter > 0) return
     setIsLoading(true)
     setError(null)
 
     try {
-      const res = await adminLogin(email, password)
+      const deviceName = getDeviceName()
+      const res = await adminLogin(email, password, deviceName)
       setAdminSession(res.token, res.user)
       router.replace('/admin')
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Invalid credentials. Please try again.'
-      )
+      if (err instanceof Error) {
+        const asRateLimit = err as Error & { retryAfter?: number }
+        if (asRateLimit.retryAfter) {
+          setRetryAfter(asRateLimit.retryAfter)
+          setError(`Too many attempts. Try again in ${asRateLimit.retryAfter}s.`)
+        } else {
+          setError(err.message || 'Invalid credentials. Please try again.')
+        }
+      }
     } finally {
       setIsLoading(false)
     }
   }
+
+  const isDisabled = isLoading || retryAfter > 0
 
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4">
@@ -63,8 +84,19 @@ export default function AdminLoginPage() {
           className="space-y-6 bg-white rounded-lg p-8 border border-zinc-200"
         >
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded">
-              {error}
+            <div
+              className={`border text-sm px-4 py-3 rounded flex items-start gap-2 ${
+                retryAfter > 0
+                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}
+            >
+              {retryAfter > 0 && <Clock size={15} className="mt-0.5 flex-shrink-0" />}
+              <span>
+                {retryAfter > 0
+                  ? `Too many attempts. Try again in ${retryAfter}s.`
+                  : error}
+              </span>
             </div>
           )}
 
@@ -79,6 +111,7 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={isDisabled}
               autoComplete="email"
               className="border-zinc-300 focus:border-rose-900 focus:ring-rose-900/20"
             />
@@ -96,13 +129,15 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isDisabled}
                 autoComplete="current-password"
                 className="border-zinc-300 focus:border-rose-900 focus:ring-rose-900/20 pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700"
+                disabled={isDisabled}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 disabled:opacity-50"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -111,10 +146,10 @@ export default function AdminLoginPage() {
 
           <Button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-[#720026] hover:bg-[#5a001e] text-white py-3 font-medium transition-all duration-300"
+            disabled={isDisabled}
+            className="w-full bg-[#720026] hover:bg-[#5a001e] text-white py-3 font-medium transition-all duration-300 disabled:opacity-60"
           >
-            {isLoading ? 'Signing In…' : 'Sign In'}
+            {isLoading ? 'Signing In…' : retryAfter > 0 ? `Retry in ${retryAfter}s` : 'Sign In'}
           </Button>
         </motion.form>
 

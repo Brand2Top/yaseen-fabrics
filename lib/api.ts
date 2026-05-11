@@ -8,6 +8,8 @@ import type {
   ApiProduct,
   ApiProductDetail,
   ApiValidationError,
+  AuthUser,
+  ChangePasswordBody,
   CreateCategoryBody,
   CreateProductBody,
   LoginResponse,
@@ -34,14 +36,21 @@ function buildHeaders(withAuth = false): Record<string, string> {
   return h
 }
 
-// Throws ApiValidationError-shaped error for 422, plain Error for everything else
+// Structured error thrown for 422 (field errors) and 429 (rate limit)
 async function handleResponse<T>(res: Response): Promise<T> {
   if (res.status === 422) {
     const body = (await res.json()) as ApiValidationError
-    const err = new Error(body.message) as Error & { errors?: Record<string, string[]> }
-    err.errors = body.errors
-    throw err
+    throw Object.assign(new Error(body.message ?? 'Validation failed'), {
+      errors: body.errors,
+    })
   }
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') ?? '60', 10)
+    throw Object.assign(new Error('Too many attempts. Please try again later.'), {
+      retryAfter,
+    })
+  }
+  if (res.status === 401) throw new Error('Unauthenticated.')
   if (!res.ok) throw new Error(`API error ${res.status}`)
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -129,12 +138,50 @@ export async function postReview(
 
 export async function adminLogin(
   email: string,
-  password: string
+  password: string,
+  deviceName?: string
 ): Promise<LoginResponse> {
   const res = await fetch(`${BASE_URL}/api/login`, {
     method: 'POST',
     headers: buildHeaders(),
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      ...(deviceName && { device_name: deviceName }),
+    }),
+  })
+  return handleResponse(res)
+}
+
+export async function getCurrentUser(): Promise<AuthUser> {
+  const res = await fetch(`${BASE_URL}/api/me`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function logout(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/logout`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+export async function logoutAll(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/logout-all`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+export async function changePassword(body: ChangePasswordBody): Promise<{ message: string }> {
+  const res = await fetch(`${BASE_URL}/api/change-password`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
   })
   return handleResponse(res)
 }

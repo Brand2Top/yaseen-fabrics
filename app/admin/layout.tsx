@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, Search, Bell, User, LogOut } from 'lucide-react'
+import { Menu, Search, Bell, User, LogOut, ShieldX } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -18,7 +18,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AdminSidebar } from '@/components/admin-sidebar'
-import { getAdminToken, getAdminUser, clearAdminSession, type AdminUser } from '@/lib/auth'
+import {
+  getAdminToken,
+  getAdminUser,
+  setAdminSession,
+  clearAdminSession,
+  type AdminUser,
+} from '@/lib/auth'
+import { getCurrentUser, logout } from '@/lib/api'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -27,6 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
   const [user, setUser] = useState<AdminUser | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
     if (isLoginPage) return
@@ -36,21 +44,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/admin/login')
       return
     }
+
+    // Show the UI immediately using cached user data
     setUser(getAdminUser())
     setAuthChecked(true)
+
+    // Verify token + refresh user data in the background
+    getCurrentUser()
+      .then((freshUser) => {
+        setUser(freshUser)
+        setAdminSession(token, freshUser)
+      })
+      .catch(() => {
+        // Token expired or revoked
+        clearAdminSession()
+        router.replace('/admin/login')
+      })
   }, [isLoginPage, router])
 
-  const handleLogout = () => {
-    clearAdminSession()
-    router.replace('/admin/login')
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await logout()
+    } catch {
+      // ignore — clear session regardless
+    } finally {
+      clearAdminSession()
+      router.replace('/admin/login')
+    }
   }
 
   if (isLoginPage) return <>{children}</>
 
-  // Blank screen while we check localStorage to avoid flash
-  if (!authChecked) {
-    return <div className="min-h-screen bg-zinc-50" />
-  }
+  if (!authChecked) return <div className="min-h-screen bg-zinc-50" />
 
   return (
     <div className="flex h-screen bg-zinc-50">
@@ -61,7 +87,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content */}
       <div className="flex-1 lg:ml-64 flex flex-col">
-        {/* Top Header */}
         <header className="bg-white border-b border-zinc-200 sticky top-0 z-40">
           <div className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
             {/* Mobile Menu */}
@@ -106,21 +131,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {user?.email && (
+                <DropdownMenuContent align="end" className="w-52">
+                  {user && (
                     <>
-                      <div className="px-3 py-2">
+                      <div className="px-3 py-2 space-y-0.5">
+                        <p className="text-sm font-medium text-zinc-900">{user.name}</p>
                         <p className="text-xs text-zinc-500 truncate">{user.email}</p>
                       </div>
                       <DropdownMenuSeparator />
                     </>
                   )}
                   <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => router.push('/admin/settings')}
+                  >
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
                     className="text-red-600 cursor-pointer"
                     onClick={handleLogout}
+                    disabled={loggingOut}
                   >
                     <LogOut size={14} className="mr-2" />
-                    Logout
+                    {loggingOut ? 'Signing out…' : 'Logout'}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
