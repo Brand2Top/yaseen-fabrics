@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   LayoutGrid,
@@ -13,6 +13,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Inbox,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -21,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { getEnquiryUnreadCount } from '@/lib/api'
 
 const SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/admin', icon: LayoutGrid },
@@ -28,6 +30,7 @@ const SIDEBAR_ITEMS = [
   { label: 'Products', href: '/admin/products', icon: Package },
   { label: 'Categories', href: '/admin/categories', icon: Layers },
   { label: 'Blog', href: '/admin/blog', icon: BookOpen },
+  { label: 'Enquiries', href: '/admin/enquiries', icon: Inbox },
   { label: 'Customers', href: '/admin/customers', icon: Users },
   { label: 'Promo Codes', href: '/admin/promo-codes', icon: Tag },
   { label: 'Settings', href: '/admin/settings', icon: Settings },
@@ -40,6 +43,18 @@ interface AdminSidebarProps {
 export function AdminSidebar({ onLinkClick }: AdminSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [activeLink, setActiveLink] = useState('/admin')
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    const fetchCount = () => {
+      getEnquiryUnreadCount()
+        .then((res) => setUnreadCount(res.count))
+        .catch(() => {})
+    }
+    fetchCount()
+    const interval = setInterval(fetchCount, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <TooltipProvider>
@@ -92,16 +107,28 @@ export function AdminSidebar({ onLinkClick }: AdminSidebarProps) {
                         : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
                     } ${isCollapsed ? 'justify-center' : ''}`}
                   >
-                    <IconComponent size={20} className="flex-shrink-0" />
+                    <div className="relative flex-shrink-0">
+                      <IconComponent size={20} />
+                      {item.href === '/admin/enquiries' && unreadCount > 0 && isCollapsed && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-rose-900 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </div>
                     {!isCollapsed && (
                       <motion.span
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="font-medium text-sm whitespace-nowrap"
+                        className="font-medium text-sm whitespace-nowrap flex-1 flex items-center justify-between"
                       >
                         {item.label}
+                        {item.href === '/admin/enquiries' && unreadCount > 0 && (
+                          <span className="ml-2 min-w-[20px] h-5 px-1 bg-rose-900 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
                       </motion.span>
                     )}
                   </Link>

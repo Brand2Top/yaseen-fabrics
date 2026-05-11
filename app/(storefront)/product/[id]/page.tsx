@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { getProduct, postReview } from '@/lib/api'
-import type { ApiProductDetail } from '@/lib/types'
+import type { ApiProductDetail, ProductNote } from '@/lib/types'
 import { useCart } from '@/context/cart-context'
 
 const LENGTHS = ['4.5', '5', '5.5', '6']
@@ -484,6 +484,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Accordions */}
+            {(product.notes as ProductNote[]).length > 0 && (
+              <div className="pt-6 border-t border-zinc-200 space-y-3">
+                <h3 className="text-sm font-medium text-zinc-900">Product Notes</h3>
+                {(product.notes as ProductNote[]).map((note) => (
+                  <div key={note.id} className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+                    <p className="text-sm font-medium text-zinc-900 mb-1">{note.title}</p>
+                    <p className="text-sm text-zinc-600 leading-relaxed">{note.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <Accordion
               type="single"
               collapsible

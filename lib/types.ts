@@ -55,7 +55,7 @@ export interface ApiProductDetail extends ApiProduct {
   gallery: ApiImage[]
   reviews: ApiReview[]
   variants: unknown[]
-  notes: unknown[]
+  notes: ProductNote[]
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
@@ -240,4 +240,55 @@ export interface ReviewFilters {
 export interface ApiValidationError {
   message: string
   errors: Record<string, string[]>
+}
+
+// ─── Product Notes ────────────────────────────────────────────────────────────
+
+export type NoteStatus = 'Public' | 'Private'
+
+export interface ProductNote {
+  id: number
+  product_id: number
+  title: string
+  content: string
+  status: NoteStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateNoteBody {
+  title: string
+  content: string
+  status: NoteStatus
+}
+
+export type UpdateNoteBody = CreateNoteBody
+
+// ─── Enquiries ────────────────────────────────────────────────────────────────
+
+export interface Enquiry {
+  id: number
+  name: string
+  email: string
+  phone?: string | null
+  subject: string
+  message: string
+  is_read: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateEnquiryBody {
+  name: string
+  email: string
+  phone?: string
+  subject: string
+  message: string
+}
+
+export interface EnquiryFilters {
+  is_read?: boolean
+  search?: string
+  per_page?: number
+  page?: number
 }

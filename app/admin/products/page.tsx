@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Plus, Pencil, Trash2, Search, X, ChevronUp, ChevronDown,
-  Upload, Star, CheckCircle, XCircle, Loader2,
+  Upload, Star, CheckCircle, XCircle, Loader2, StickyNote,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,6 +59,10 @@ import {
   getAdminReviews,
   moderateReview,
   deleteAdminReview,
+  getProductNotes,
+  createNote,
+  updateNote,
+  deleteNote,
 } from '@/lib/api'
 import type {
   ApiProduct,
@@ -70,6 +74,9 @@ import type {
   AdminReview,
   ReviewStatus,
   ReviewFilters,
+  ProductNote,
+  NoteStatus,
+  CreateNoteBody,
 } from '@/lib/types'
 
 const PER_PAGE = 15
@@ -90,7 +97,7 @@ const EMPTY_FORM: CreateProductBody = {
 }
 
 type ActiveFilter = 'all' | '1' | '0'
-type ModalTab = 'general' | 'media' | 'reviews'
+type ModalTab = 'general' | 'media' | 'reviews' | 'notes'
 type ReviewFilterTab = ReviewStatus | 'all'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -145,6 +152,15 @@ function ProductFormModal({
   const [moderatingId, setModeratingId] = useState<number | null>(null)
   const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null)
 
+  // ─── Notes tab ──────────────────────────────────
+  const [notes, setNotes] = useState<ProductNote[]>([])
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [noteForm, setNoteForm] = useState<CreateNoteBody>({ title: '', content: '', status: 'Private' })
+  const [editingNote, setEditingNote] = useState<ProductNote | null>(null)
+  const [showNoteForm, setShowNoteForm] = useState(false)
+  const [savingNote, setSavingNote] = useState(false)
+  const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null)
+
   // ─── Init on open / close ──────────────────────
   useEffect(() => {
     if (!open) {
@@ -152,6 +168,10 @@ function ProductFormModal({
       setActiveTab('general')
       setProductDetail(null)
       setReviews([])
+      setNotes([])
+      setShowNoteForm(false)
+      setEditingNote(null)
+      setNoteForm({ title: '', content: '', status: 'Private' })
       setFeaturedPreview(null)
       setGalleryPreviews([])
       return
@@ -206,6 +226,16 @@ function ProductFormModal({
       .catch(() => {})
       .finally(() => setReviewsLoading(false))
   }, [activeTab, productId, reviewStatusFilter])
+
+  // Load notes when switching to Notes tab
+  useEffect(() => {
+    if (activeTab !== 'notes' || !productId) return
+    setNotesLoading(true)
+    getProductNotes(productId)
+      .then((res) => setNotes(res.data))
+      .catch(() => {})
+      .finally(() => setNotesLoading(false))
+  }, [activeTab, productId])
 
   // ─── General handlers ──────────────────────────
   const set = <K extends keyof CreateProductBody>(key: K, value: CreateProductBody[K]) =>
@@ -345,6 +375,60 @@ function ProductFormModal({
     }
   }
 
+  // ─── Note handlers ─────────────────────────────
+  const handleSaveNote = async () => {
+    if (!productId) return
+    if (!noteForm.title.trim() || !noteForm.content.trim()) {
+      toast.error('Title and content are required')
+      return
+    }
+    setSavingNote(true)
+    try {
+      if (editingNote) {
+        const updated = await updateNote(productId, editingNote.id, noteForm)
+        setNotes((prev) => prev.map((n) => (n.id === editingNote.id ? updated : n)))
+        toast.success('Note updated')
+      } else {
+        const created = await createNote(productId, noteForm)
+        setNotes((prev) => [created, ...prev])
+        toast.success('Note added')
+      }
+      setShowNoteForm(false)
+      setEditingNote(null)
+      setNoteForm({ title: '', content: '', status: 'Private' })
+    } catch {
+      toast.error('Failed to save note')
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  const handleDeleteNote = async (id: number) => {
+    if (!productId) return
+    setDeletingNoteId(id)
+    try {
+      await deleteNote(productId, id)
+      setNotes((prev) => prev.filter((n) => n.id !== id))
+      toast.success('Note deleted')
+    } catch {
+      toast.error('Failed to delete note')
+    } finally {
+      setDeletingNoteId(null)
+    }
+  }
+
+  const startEditNote = (note: ProductNote) => {
+    setEditingNote(note)
+    setNoteForm({ title: note.title, content: note.content, status: note.status })
+    setShowNoteForm(true)
+  }
+
+  const cancelNoteForm = () => {
+    setShowNoteForm(false)
+    setEditingNote(null)
+    setNoteForm({ title: '', content: '', status: 'Private' })
+  }
+
   // ─── Featured image display logic ─────────────
   const featuredImgSrc = uploadingFeatured && featuredPreview
     ? featuredPreview
@@ -363,10 +447,11 @@ function ProductFormModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ModalTab)}>
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="media" disabled={!productId}>Media</TabsTrigger>
             <TabsTrigger value="reviews" disabled={!productId}>Reviews</TabsTrigger>
+            <TabsTrigger value="notes" disabled={!productId}>Notes</TabsTrigger>
           </TabsList>
 
           {/* ── General ─────────────────────────────── */}
@@ -768,6 +853,142 @@ function ProductFormModal({
                     </p>
                   </div>
                 ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Notes ───────────────────────────────── */}
+          <TabsContent value="notes" className="pt-4">
+            {notesLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {notes.length === 0 && !showNoteForm && (
+                  <div className="text-center py-10 text-zinc-500 text-sm">
+                    <StickyNote size={28} className="mx-auto mb-2 text-zinc-300" />
+                    No notes yet
+                  </div>
+                )}
+
+                {notes.map((note) => (
+                  <div key={note.id} className="border border-zinc-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-sm font-medium text-zinc-900">{note.title}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                            note.status === 'Public'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-zinc-100 text-zinc-600'
+                          }`}>
+                            {note.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-600 line-clamp-2">{note.content}</p>
+                        <p className="text-xs text-zinc-400 mt-1.5">
+                          {new Date(note.created_at).toLocaleDateString('en-PK', {
+                            year: 'numeric', month: 'short', day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => startEditNote(note)}
+                          className="p-1.5 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNote(note.id)}
+                          disabled={deletingNoteId === note.id}
+                          className="p-1.5 rounded hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                          title="Delete"
+                        >
+                          {deletingNoteId === note.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <Trash2 size={13} />
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Inline create/edit form */}
+                {showNoteForm ? (
+                  <div className="border border-zinc-200 rounded-lg p-4 bg-zinc-50 space-y-3">
+                    <p className="text-xs font-semibold text-zinc-700">
+                      {editingNote ? 'Edit Note' : 'New Note'}
+                    </p>
+                    <div>
+                      <input
+                        value={noteForm.title}
+                        onChange={(e) => setNoteForm((p) => ({ ...p, title: e.target.value }))}
+                        placeholder="Title *"
+                        className="w-full text-sm border border-zinc-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-rose-900/20 focus:border-rose-900 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <textarea
+                        value={noteForm.content}
+                        onChange={(e) => setNoteForm((p) => ({ ...p, content: e.target.value }))}
+                        placeholder="Content *"
+                        rows={3}
+                        className="w-full text-sm border border-zinc-200 rounded-md px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-rose-900/20 focus:border-rose-900 transition-colors"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-500">Status:</span>
+                      {(['Public', 'Private'] as NoteStatus[]).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setNoteForm((p) => ({ ...p, status: s }))}
+                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                            noteForm.status === s
+                              ? 'bg-zinc-900 text-white border-zinc-900'
+                              : 'border-zinc-200 text-zinc-600 hover:border-zinc-400'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveNote}
+                        disabled={savingNote}
+                        className="bg-rose-900 hover:bg-rose-950 text-white text-xs h-8 gap-1.5"
+                      >
+                        {savingNote && <Loader2 size={12} className="animate-spin" />}
+                        {editingNote ? 'Update' : 'Add Note'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={cancelNoteForm}
+                        disabled={savingNote}
+                        className="text-xs h-8"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowNoteForm(true)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-zinc-500 border border-dashed border-zinc-200 rounded-lg hover:border-zinc-400 hover:text-zinc-700 transition-colors"
+                  >
+                    <Plus size={13} />
+                    Add Note
+                  </button>
+                )}
               </div>
             )}
           </TabsContent>

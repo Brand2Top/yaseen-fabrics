@@ -48,7 +48,7 @@ function Navbar() {
     { label: 'Collections', href: '/shop' },
     { label: 'Best Sellers', href: '/shop' },
     { label: 'Blog', href: '/blog' },
-    { label: 'About', href: '#' },
+    { label: 'Contact', href: '/contact' },
   ]
 
   return (

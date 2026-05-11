@@ -26,6 +26,12 @@ import type {
   UpdateCategoryBody,
   UpdatePostBody,
   UpdateProductBody,
+  CreateNoteBody,
+  UpdateNoteBody,
+  ProductNote,
+  Enquiry,
+  CreateEnquiryBody,
+  EnquiryFilters,
 } from './types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.aleenza.store'
@@ -452,6 +458,119 @@ export async function uploadPostImage(file: File): Promise<{ url: string }> {
     method: 'POST',
     headers: buildAuthHeaders(),
     body: form,
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Product Notes ─────────────────────────────────────────────────────
+
+export async function getProductNotes(
+  productId: number,
+  page = 1
+): Promise<ApiPaginatedResponse<ProductNote>> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/notes?page=${page}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function createNote(
+  productId: number,
+  body: CreateNoteBody
+): Promise<ProductNote> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/notes`, {
+    method: 'POST',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return unwrapData(res)
+}
+
+export async function updateNote(
+  productId: number,
+  noteId: number,
+  body: UpdateNoteBody
+): Promise<ProductNote> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/notes/${noteId}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+  return unwrapData(res)
+}
+
+export async function deleteNote(productId: number, noteId: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/products/${productId}/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+// ─── Public: Enquiries ────────────────────────────────────────────────────────
+
+export async function submitEnquiry(body: CreateEnquiryBody): Promise<{ message: string }> {
+  const res = await fetch(`${BASE_URL}/api/enquiries`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify(body),
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Enquiries ─────────────────────────────────────────────────────────
+
+export async function getEnquiries(
+  filters: EnquiryFilters = {}
+): Promise<ApiPaginatedResponse<Enquiry>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/enquiries?${params}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function getEnquiryUnreadCount(): Promise<{ count: number }> {
+  const res = await fetch(`${BASE_URL}/api/enquiries/unread-count`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function getEnquiry(id: number): Promise<Enquiry> {
+  const res = await fetch(`${BASE_URL}/api/enquiries/${id}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return unwrapData(res)
+}
+
+export async function markEnquiryRead(id: number): Promise<Enquiry> {
+  const res = await fetch(`${BASE_URL}/api/enquiries/${id}/read`, {
+    method: 'PATCH',
+    headers: buildHeaders(true),
+  })
+  return unwrapData(res)
+}
+
+export async function markEnquiryUnread(id: number): Promise<Enquiry> {
+  const res = await fetch(`${BASE_URL}/api/enquiries/${id}/unread`, {
+    method: 'PATCH',
+    headers: buildHeaders(true),
+  })
+  return unwrapData(res)
+}
+
+export async function deleteEnquiry(id: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/enquiries/${id}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
   })
   return handleResponse(res)
 }
