@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { motion } from 'framer-motion'
 import { Star, Heart, Share2, Truck, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
@@ -178,7 +178,8 @@ function LoadingSkeleton() {
   )
 }
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
+export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const { addItem } = useCart()
   const [product, setProduct] = useState<ApiProductDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -192,7 +193,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     setLoading(true)
     setError(null)
 
-    getProduct(params.id)
+    getProduct(id)
       .then((data) => {
         if (!cancelled) {
           setProduct(data)
@@ -210,7 +211,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     return () => {
       cancelled = true
     }
-  }, [params.id])
+  }, [id])
 
   if (loading) return <LoadingSkeleton />
 
