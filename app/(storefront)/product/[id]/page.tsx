@@ -41,11 +41,10 @@ function StarPicker({
           className="focus:outline-none"
         >
           <Star
-            className={`w-6 h-6 transition-colors ${
-              display && star <= display
+            className={`w-6 h-6 transition-colors ${display && star <= display
                 ? 'fill-amber-400 text-amber-400'
                 : 'text-zinc-300'
-            }`}
+              }`}
           />
         </button>
       ))}
@@ -266,7 +265,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <Link href="/shop" className="hover:text-zinc-900">Collections</Link>
             <span>/</span>
             <Link
-              href={`/shop?category=${product.category.slug}`}
+              href={`/shop?category=${product.category?.slug}`}
               className="hover:text-zinc-900"
             >
               {product.category.name}
@@ -306,11 +305,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     <button
                       key={img.id}
                       onClick={() => setSelectedImage(i)}
-                      className={`relative rounded-lg overflow-hidden aspect-square border-2 transition-all ${
-                        selectedImage === i
+                      className={`relative rounded-lg overflow-hidden aspect-square border-2 transition-all ${selectedImage === i
                           ? 'border-zinc-900'
                           : 'border-zinc-200 hover:border-zinc-400'
-                      }`}
+                        }`}
                     >
                       <img
                         src={img.url}
@@ -345,11 +343,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         {[...Array(5)].map((_, i) => (
                           <Star
                             key={i}
-                            className={`w-4 h-4 ${
-                              i < Math.floor(product.average_rating)
+                            className={`w-4 h-4 ${i < Math.floor(product.average_rating)
                                 ? 'fill-amber-400 text-amber-400'
                                 : 'text-zinc-300'
-                            }`}
+                              }`}
                           />
                         ))}
                       </div>
@@ -551,11 +548,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                 {[...Array(5)].map((_, i) => (
                                   <Star
                                     key={i}
-                                    className={`w-3 h-3 ${
-                                      i < Math.floor(review.rating)
+                                    className={`w-3 h-3 ${i < Math.floor(review.rating)
                                         ? 'fill-amber-400 text-amber-400'
                                         : 'text-zinc-300'
-                                    }`}
+                                      }`}
                                   />
                                 ))}
                               </div>
