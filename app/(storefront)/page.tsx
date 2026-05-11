@@ -1,11 +1,15 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Star, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useCart } from '@/context/cart-context'
 import { toast } from 'sonner'
+import { getProducts, getCategories } from '@/lib/api'
+import type { ApiProduct, ApiCategory } from '@/lib/types'
 
 // Hero Section
 function HeroSection() {
@@ -59,26 +63,15 @@ function HeroSection() {
 
 // Collections Section
 function CollectionsSection() {
-  const collections = [
-    {
-      id: 1,
-      name: 'Lawn',
-      description: 'Breathable summer essentials',
-      image: 'https://images.unsplash.com/photo-1608231387042-2142a120dae1?w=500&h=600&fit=crop'
-    },
-    {
-      id: 2,
-      name: 'Cotton',
-      description: 'Premium Egyptian Cotton',
-      image: 'https://images.unsplash.com/photo-1589330189881-8a898e13da57?w=500&h=600&fit=crop'
-    },
-    {
-      id: 3,
-      name: 'Wash & Wear',
-      description: 'Effortless everyday comfort',
-      image: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=500&h=600&fit=crop'
-    },
-  ]
+  const [categories, setCategories] = useState<ApiCategory[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getCategories()
+      .then((res) => setCategories(res.data.slice(0, 3)))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
     <section className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-zinc-50">
@@ -99,34 +92,45 @@ function CollectionsSection() {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {collections.map((collection, index) => (
-            <motion.div
-              key={collection.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              className="group relative h-[400px] rounded-lg overflow-hidden cursor-pointer"
-            >
-              <img
-                src={collection.image}
-                alt={collection.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
-              <div className="absolute inset-0 flex flex-col justify-end p-6">
-                <h3 className="font-serif text-3xl font-bold text-white mb-2">
-                  {collection.name}
-                </h3>
-                <p className="text-white/90 mb-4">{collection.description}</p>
-                <Link href="/shop">
-                  <button className="inline-flex items-center gap-2 text-white hover:gap-3 transition-all duration-300">
-                    Explore <ChevronRight size={18} />
-                  </button>
-                </Link>
-              </div>
-            </motion.div>
-          ))}
+          {loading
+            ? [...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-[400px] rounded-lg" />
+              ))
+            : categories.map((cat, index) => (
+                <motion.div
+                  key={cat.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  viewport={{ once: true, margin: '-100px' }}
+                  className="group relative h-[400px] rounded-lg overflow-hidden cursor-pointer"
+                >
+                  {cat.image?.url ? (
+                    <img
+                      src={cat.image.url}
+                      alt={cat.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900" />
+                  )}
+                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-6">
+                    <h3 className="font-serif text-3xl font-bold text-white mb-2">{cat.name}</h3>
+                    {cat.description && (
+                      <p className="text-white/90 mb-4 line-clamp-2">{cat.description}</p>
+                    )}
+                    {cat.products_count > 0 && (
+                      <p className="text-white/70 text-sm mb-3">{cat.products_count} products</p>
+                    )}
+                    <Link href="/shop">
+                      <button className="inline-flex items-center gap-2 text-white hover:gap-3 transition-all duration-300">
+                        Explore <ChevronRight size={18} />
+                      </button>
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
         </div>
       </div>
     </section>
@@ -136,56 +140,27 @@ function CollectionsSection() {
 // Best Sellers Section
 function BestSellersSection() {
   const { addItem } = useCart()
-  
-  const bestSellers = [
-    {
-      id: '1',
-      name: 'Royal Egyptian Cotton',
-      price: 8499,
-      rating: 4.8,
-      reviews: 156,
-      image: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=300&h=300&fit=crop',
-      badge: 'Bestseller'
-    },
-    {
-      id: '2',
-      name: 'Premium Lawn Collection',
-      price: 4299,
-      rating: 4.9,
-      reviews: 243,
-      image: 'https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=300&h=300&fit=crop',
-      badge: 'New'
-    },
-    {
-      id: '3',
-      name: 'Summer Breeze Karandi',
-      price: 5899,
-      rating: 4.7,
-      reviews: 98,
-      image: 'https://images.unsplash.com/photo-1608231387042-2142a120dae1?w=300&h=300&fit=crop',
-      badge: 'Bestseller'
-    },
-    {
-      id: '4',
-      name: 'Elite Wash & Wear',
-      price: 3899,
-      rating: 4.6,
-      reviews: 189,
-      image: 'https://images.unsplash.com/photo-1589330189881-8a898e13da57?w=300&h=300&fit=crop',
-      badge: 'New'
-    },
-  ]
+  const [products, setProducts] = useState<ApiProduct[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handleQuickAdd = (product: typeof bestSellers[0]) => {
+  useEffect(() => {
+    getProducts({ is_featured: 1, per_page: 4, sort: 'rating' })
+      .then((res) => setProducts(res.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleQuickAdd = (product: ApiProduct) => {
+    const price = product.discounted_price ?? product.price
     addItem({
-      id: product.id,
+      id: String(product.id),
       name: product.name,
-      price: product.price,
+      price,
       quantity: 1,
-      image: product.image,
+      image: product.featured_image?.url,
     })
     toast.success(`${product.name} added to cart!`, {
-      description: `Rs ${product.price.toLocaleString()}`,
+      description: `Rs ${price.toLocaleString()}`,
     })
   }
 
@@ -208,81 +183,113 @@ function BestSellersSection() {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {bestSellers.map((product, index) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              className="group bg-white border border-zinc-200 rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300"
-            >
-              {/* Image Container */}
-              <div className="relative h-64 bg-zinc-100 overflow-hidden">
-                {/* Badge */}
-                <div className="absolute top-4 left-4 z-10">
-                  <span className="bg-rose-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                    {product.badge}
-                  </span>
-                </div>
-
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-
-              {/* Details */}
-              <div className="p-6">
-                <Link href={`/product/${product.id}`}>
-                  <h3 className="font-medium text-zinc-900 mb-2 hover:text-rose-900 transition-colors duration-300 line-clamp-2 cursor-pointer">
-                    {product.name}
-                  </h3>
-                </Link>
-
-                {/* Rating */}
-                <div className="flex items-center gap-1 mb-3">
-                  <div className="flex gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={14}
-                        className={`${
-                          i < Math.floor(product.rating)
-                            ? 'fill-amber-400 text-amber-400'
-                            : 'text-zinc-300'
-                        }`}
-                      />
-                    ))}
+          {loading
+            ? [...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+                  <Skeleton className="h-64 w-full" />
+                  <div className="p-6 space-y-3">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-5 w-20" />
+                    <div className="flex gap-3">
+                      <Skeleton className="h-9 flex-1" />
+                      <Skeleton className="h-9 flex-1" />
+                    </div>
                   </div>
-                  <span className="text-xs text-zinc-600 ml-1">
-                    {product.rating} ({product.reviews})
-                  </span>
                 </div>
+              ))
+            : products.map((product, index) => {
+                const price = product.discounted_price ?? product.price
+                const hasDiscount =
+                  product.discounted_price != null && product.discounted_price < product.price
 
-                {/* Price */}
-                <p className="font-serif text-lg font-bold text-zinc-900 mb-4">
-                  Rs {product.price.toLocaleString()}
-                </p>
-
-                {/* Quick Add Button */}
-                <div className="flex gap-3">
-                  <Link href={`/product/${product.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full text-zinc-900 border-zinc-300 hover:border-zinc-900 hover:bg-zinc-50 transition-all duration-300">
-                      View
-                    </Button>
-                  </Link>
-                  <button
-                    onClick={() => handleQuickAdd(product)}
-                    className="flex-1 bg-rose-900 text-white hover:bg-rose-950 transition-all duration-300 font-medium py-2 rounded"
+                return (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: index * 0.1 }}
+                    viewport={{ once: true, margin: '-100px' }}
+                    className="group bg-white border border-zinc-200 rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300"
                   >
-                    Quick Add
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+                    <div className="relative h-64 bg-zinc-100 overflow-hidden">
+                      {product.is_featured && (
+                        <div className="absolute top-4 left-4 z-10">
+                          <span className="bg-rose-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                            Featured
+                          </span>
+                        </div>
+                      )}
+                      {product.featured_image?.url ? (
+                        <img
+                          src={product.featured_image.url}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-zinc-200" />
+                      )}
+                    </div>
+
+                    <div className="p-6">
+                      <Link href={`/product/${product.slug}`}>
+                        <h3 className="font-medium text-zinc-900 mb-2 hover:text-rose-900 transition-colors duration-300 line-clamp-2 cursor-pointer">
+                          {product.name}
+                        </h3>
+                      </Link>
+
+                      {product.average_rating > 0 && (
+                        <div className="flex items-center gap-1 mb-3">
+                          <div className="flex gap-0.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                size={14}
+                                className={`${
+                                  i < Math.floor(product.average_rating)
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : 'text-zinc-300'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-zinc-600 ml-1">
+                            {product.average_rating.toFixed(1)} ({product.reviews_count})
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 mb-4">
+                        <p className="font-serif text-lg font-bold text-zinc-900">
+                          Rs {price.toLocaleString()}
+                        </p>
+                        {hasDiscount && (
+                          <p className="font-serif text-sm text-zinc-400 line-through">
+                            Rs {product.price.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Link href={`/product/${product.slug}`} className="flex-1">
+                          <Button
+                            variant="outline"
+                            className="w-full text-zinc-900 border-zinc-300 hover:border-zinc-900 hover:bg-zinc-50 transition-all duration-300"
+                          >
+                            View
+                          </Button>
+                        </Link>
+                        <button
+                          onClick={() => handleQuickAdd(product)}
+                          className="flex-1 bg-rose-900 text-white hover:bg-rose-950 transition-all duration-300 font-medium py-2 rounded"
+                        >
+                          Quick Add
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              })}
         </div>
       </div>
     </section>
