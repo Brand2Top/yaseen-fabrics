@@ -76,6 +76,12 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// Laravel wraps single resources in { data: ... } — unwrap for single-item endpoints
+async function unwrapData<T>(res: Response): Promise<T> {
+  const body = await handleResponse<{ data: T }>(res)
+  return body.data
+}
+
 // ─── Public: Homepage ─────────────────────────────────────────────────────────
 
 export async function getFeaturedCategories(): Promise<ApiListResponse<ApiCategory>> {
@@ -111,7 +117,7 @@ export async function getCategory(
     headers: buildHeaders(),
     cache: 'no-store',
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 // ─── Public: Products ─────────────────────────────────────────────────────────
@@ -137,7 +143,7 @@ export async function getProduct(
     headers: buildHeaders(),
     cache: 'no-store',
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 // ─── Public: Reviews ─────────────────────────────────────────────────────────
@@ -230,7 +236,7 @@ export async function createProduct(
     headers: buildHeaders(true),
     body: JSON.stringify(body),
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function updateProduct(
@@ -242,7 +248,7 @@ export async function updateProduct(
     headers: buildHeaders(true),
     body: JSON.stringify(body),
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function deleteProduct(id: number): Promise<void> {
@@ -277,7 +283,7 @@ export async function createCategory(
     headers: buildHeaders(true),
     body: JSON.stringify(body),
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function updateCategory(
@@ -289,7 +295,7 @@ export async function updateCategory(
     headers: buildHeaders(true),
     body: JSON.stringify(body),
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function deleteCategory(id: number): Promise<void> {
@@ -318,7 +324,7 @@ export async function uploadMedia(
     headers: buildAuthHeaders(),
     body: form,
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function deleteMedia(mediaId: number): Promise<void> {
@@ -354,7 +360,7 @@ export async function moderateReview(
     headers: buildHeaders(true),
     body: JSON.stringify({ status }),
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function deleteAdminReview(id: number): Promise<void> {
@@ -386,7 +392,7 @@ export async function getPost(slug: string): Promise<ApiPostDetail> {
     headers: buildHeaders(),
     cache: 'no-store',
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 // ─── Admin: Posts ─────────────────────────────────────────────────────────────
@@ -410,7 +416,7 @@ export async function getAdminPost(id: number): Promise<ApiPostDetail> {
     headers: buildHeaders(true),
     cache: 'no-store',
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function createPost(body: CreatePostBody): Promise<ApiPostDetail> {
@@ -419,7 +425,7 @@ export async function createPost(body: CreatePostBody): Promise<ApiPostDetail> {
     headers: buildHeaders(true),
     body: JSON.stringify(body),
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function updatePost(id: number, body: UpdatePostBody): Promise<ApiPostDetail> {
@@ -428,7 +434,7 @@ export async function updatePost(id: number, body: UpdatePostBody): Promise<ApiP
     headers: buildHeaders(true),
     body: JSON.stringify(body),
   })
-  return handleResponse(res)
+  return unwrapData(res)
 }
 
 export async function deletePost(id: number): Promise<void> {

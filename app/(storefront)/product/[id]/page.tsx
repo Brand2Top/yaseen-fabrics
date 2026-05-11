@@ -268,7 +268,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               href={`/shop?category=${product.category?.slug}`}
               className="hover:text-zinc-900"
             >
-              {product.category.name}
+              {product.category?.name}
             </Link>
             <span>/</span>
             <span className="text-zinc-900 line-clamp-1">{product.name}</span>
@@ -333,17 +333,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1 pr-4">
                   <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2 font-medium">
-                    {product.category.name}
+                    {product.category?.name}
                   </p>
                   <h1 className="font-serif text-3xl text-zinc-900 mb-3">{product.name}</h1>
 
-                  {product.average_rating > 0 && (
+                  {(product.average_rating ?? 0) > 0 && (
                     <div className="flex items-center gap-2">
                       <div className="flex">
                         {[...Array(5)].map((_, i) => (
                           <Star
                             key={i}
-                            className={`w-4 h-4 ${i < Math.floor(product.average_rating)
+                            className={`w-4 h-4 ${i < Math.floor(product.average_rating ?? 0)
                               ? 'fill-amber-400 text-amber-400'
                               : 'text-zinc-300'
                               }`}
@@ -351,7 +351,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         ))}
                       </div>
                       <span className="text-sm text-zinc-600">
-                        {product.average_rating.toFixed(1)} ({product.reviews_count}{' '}
+                        {(product.average_rating ?? 0).toFixed(1)} ({product.reviews_count}{' '}
                         {product.reviews_count === 1 ? 'review' : 'reviews'})
                       </span>
                     </div>
