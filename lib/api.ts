@@ -2,8 +2,10 @@ import { getAdminToken } from './auth'
 import type {
   AdminCategoryFilters,
   AdminProductFilters,
+  AdminReview,
   ApiCategory,
   ApiListResponse,
+  ApiMedia,
   ApiPaginatedResponse,
   ApiProduct,
   ApiProductDetail,
@@ -15,6 +17,8 @@ import type {
   LoginResponse,
   ProductFilters,
   ReviewBody,
+  ReviewFilters,
+  ReviewStatus,
   UpdateCategoryBody,
   UpdateProductBody,
 } from './types'
@@ -33,6 +37,17 @@ function buildHeaders(withAuth = false): Record<string, string> {
     const token = getAdminToken() ?? ENV_TOKEN
     if (token) h.Authorization = `Bearer ${token}`
   }
+  return h
+}
+
+// Omits Content-Type so browser sets multipart/form-data boundary automatically
+function buildAuthHeaders(): Record<string, string> {
+  const h: Record<string, string> = {
+    Accept: 'application/json',
+    'X-Tenant': TENANT,
+  }
+  const token = getAdminToken() ?? ENV_TOKEN
+  if (token) h.Authorization = `Bearer ${token}`
   return h
 }
 
@@ -274,6 +289,71 @@ export async function updateCategory(
 
 export async function deleteCategory(id: number): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/categories/${id}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Media ─────────────────────────────────────────────────────────────
+
+export async function uploadMedia(
+  file: File,
+  modelType: string,
+  modelId: number,
+  collectionName: string
+): Promise<ApiMedia> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('model_type', modelType)
+  form.append('model_id', String(modelId))
+  form.append('collection_name', collectionName)
+  const res = await fetch(`${BASE_URL}/api/media`, {
+    method: 'POST',
+    headers: buildAuthHeaders(),
+    body: form,
+  })
+  return handleResponse(res)
+}
+
+export async function deleteMedia(mediaId: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/media/${mediaId}`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  })
+  return handleResponse(res)
+}
+
+// ─── Admin: Reviews ───────────────────────────────────────────────────────────
+
+export async function getAdminReviews(
+  filters: ReviewFilters = {}
+): Promise<ApiPaginatedResponse<AdminReview>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const res = await fetch(`${BASE_URL}/api/reviews?${params}`, {
+    headers: buildHeaders(true),
+    cache: 'no-store',
+  })
+  return handleResponse(res)
+}
+
+export async function moderateReview(
+  id: number,
+  status: ReviewStatus
+): Promise<AdminReview> {
+  const res = await fetch(`${BASE_URL}/api/reviews/${id}`, {
+    method: 'PUT',
+    headers: buildHeaders(true),
+    body: JSON.stringify({ status }),
+  })
+  return handleResponse(res)
+}
+
+export async function deleteAdminReview(id: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/reviews/${id}`, {
     method: 'DELETE',
     headers: buildHeaders(true),
   })

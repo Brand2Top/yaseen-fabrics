@@ -231,7 +231,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const allImages = [
     ...(product.featured_image ? [product.featured_image] : []),
-    ...product.gallery,
+    ...(product.gallery ?? []),
   ]
 
   const hasDiscount =
@@ -527,9 +527,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
-                    {product.reviews.length > 0 ? (
+                    {(product.reviews ?? []).length > 0 ? (
                       <div className="space-y-4">
-                        {product.reviews.map((review) => (
+                        {(product.reviews ?? []).map((review) => (
                           <div
                             key={review.id}
                             className="pb-4 border-b border-zinc-100 last:border-0"

@@ -162,6 +162,42 @@ export interface CreateCategoryBody {
 
 export type UpdateCategoryBody = Partial<CreateCategoryBody>
 
+// ─── Media ───────────────────────────────────────────────────────────────────
+
+export interface ApiMedia {
+  id: number
+  url: string
+  name?: string
+  file_name?: string
+  mime_type?: string
+  collection_name?: string
+}
+
+// ─── Admin Reviews ────────────────────────────────────────────────────────────
+
+export type ReviewStatus = 'Approved' | 'Rejected' | 'Pending'
+
+export interface AdminReview {
+  id: number
+  name: string
+  email?: string | null
+  phone?: string | null
+  rating: number
+  message?: string | null
+  status: ReviewStatus
+  created_at: string
+  product?: { id: number; name: string; slug: string } | null
+}
+
+export interface ReviewFilters {
+  status?: ReviewStatus
+  product_id?: number
+  min_rating?: number
+  max_rating?: number
+  page?: number
+  per_page?: number
+}
+
 // ─── Errors ──────────────────────────────────────────────────────────────────
 
 export interface ApiValidationError {
