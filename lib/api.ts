@@ -252,7 +252,7 @@ export async function deleteProduct(id: number): Promise<void> {
 
 export async function getAdminCategories(
   filters: AdminCategoryFilters = {}
-): Promise<ApiPaginatedResponse<ApiCategory>> {
+): Promise<ApiListResponse<ApiCategory>> {
   const params = new URLSearchParams()
   for (const [k, v] of Object.entries(filters)) {
     if (v !== undefined && v !== null && v !== '') params.set(k, String(v))

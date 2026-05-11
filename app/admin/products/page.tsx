@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Plus, Pencil, Trash2, Search, X, ChevronUp, ChevronDown,
-  Upload, Star, CheckCircle, XCircle,
+  Upload, Star, CheckCircle, XCircle, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,13 +93,15 @@ type ActiveFilter = 'all' | '1' | '0'
 type ModalTab = 'general' | 'media' | 'reviews'
 type ReviewFilterTab = ReviewStatus | 'all'
 
-// ─── Subcomponents ────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function FieldError({ errors, field }: { errors: Record<string, string[]>; field: string }) {
   const msgs = errors[field]
   if (!msgs?.length) return null
   return <p className="text-xs text-red-600 mt-1">{msgs[0]}</p>
 }
+
+// ─── ProductFormModal ─────────────────────────────────────────────────────────
 
 function ProductFormModal({
   open,
@@ -118,36 +120,40 @@ function ProductFormModal({
   const [savedProductId, setSavedProductId] = useState<number | null>(null)
   const productId = editing?.id ?? savedProductId
 
-  // ─── General tab ──────────────────────────────────────────
+  // ─── General tab ────────────────────────────────
   const [form, setForm] = useState<CreateProductBody>(EMPTY_FORM)
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
   const [descriptionLoading, setDescriptionLoading] = useState(false)
 
-  // ─── Product detail (shared by General desc + Media) ──────
+  // ─── Product detail (for media + description) ───
   const [productDetail, setProductDetail] = useState<ApiProductDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  // ─── Media tab ────────────────────────────────────────────
+  // ─── Media tab ──────────────────────────────────
   const [uploadingFeatured, setUploadingFeatured] = useState(false)
+  const [featuredPreview, setFeaturedPreview] = useState<string | null>(null)
   const [uploadingGallery, setUploadingGallery] = useState(false)
+  const [galleryPreviews, setGalleryPreviews] = useState<{ key: string; url: string }[]>([])
   const [deletingMediaId, setDeletingMediaId] = useState<number | null>(null)
 
-  // ─── Reviews tab ──────────────────────────────────────────
+  // ─── Reviews tab ────────────────────────────────
   const [reviews, setReviews] = useState<AdminReview[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [reviewStatusFilter, setReviewStatusFilter] = useState<ReviewFilterTab>('all')
   const [moderatingId, setModeratingId] = useState<number | null>(null)
   const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null)
 
-  // ─── Init on open ─────────────────────────────────────────
+  // ─── Init on open / close ──────────────────────
   useEffect(() => {
     if (!open) {
       setSavedProductId(null)
       setActiveTab('general')
       setProductDetail(null)
       setReviews([])
+      setFeaturedPreview(null)
+      setGalleryPreviews([])
       return
     }
     setFieldErrors({})
@@ -178,7 +184,7 @@ function ProductFormModal({
     }
   }, [open, editing])
 
-  // Load detail when switching to Media tab for a newly created product
+  // Load detail when switching to Media tab for new product
   useEffect(() => {
     if (activeTab !== 'media' || !productId) return
     if (productDetail?.id === productId) return
@@ -201,7 +207,7 @@ function ProductFormModal({
       .finally(() => setReviewsLoading(false))
   }, [activeTab, productId, reviewStatusFilter])
 
-  // ─── General form handlers ────────────────────────────────
+  // ─── General handlers ──────────────────────────
   const set = <K extends keyof CreateProductBody>(key: K, value: CreateProductBody[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
@@ -239,9 +245,7 @@ function ProductFormModal({
     } catch (err: unknown) {
       if (err instanceof Error) {
         const e = err as Error & { errors?: Record<string, string[]> }
-        if (e.errors) {
-          setFieldErrors(e.errors)
-        }
+        if (e.errors) setFieldErrors(e.errors)
         toast.error(err.message)
       } else {
         toast.error('Something went wrong. Please try again.')
@@ -251,7 +255,7 @@ function ProductFormModal({
     }
   }
 
-  // ─── Media handlers ───────────────────────────────────────
+  // ─── Media handlers ────────────────────────────
   const refreshMedia = useCallback(async () => {
     if (!productId) return
     const updated = await getProduct(productId)
@@ -260,6 +264,8 @@ function ProductFormModal({
 
   const handleFeaturedUpload = async (file: File) => {
     if (!productId) return
+    const previewUrl = URL.createObjectURL(file)
+    setFeaturedPreview(previewUrl)
     setUploadingFeatured(true)
     try {
       await uploadMedia(file, 'Product', productId, 'featured')
@@ -268,22 +274,33 @@ function ProductFormModal({
     } catch {
       toast.error('Failed to upload image')
     } finally {
+      URL.revokeObjectURL(previewUrl)
+      setFeaturedPreview(null)
       setUploadingFeatured(false)
     }
   }
 
   const handleGalleryUpload = async (files: FileList) => {
     if (!productId) return
+    const previews = Array.from(files).map((f) => ({
+      key: Math.random().toString(36).slice(2),
+      url: URL.createObjectURL(f),
+    }))
+    setGalleryPreviews(previews)
     setUploadingGallery(true)
     try {
       for (const file of Array.from(files)) {
         await uploadMedia(file, 'Product', productId, 'gallery')
       }
       await refreshMedia()
-      toast.success('Images added to gallery')
+      toast.success(
+        files.length > 1 ? `${files.length} images added to gallery` : 'Image added to gallery'
+      )
     } catch {
       toast.error('Failed to upload images')
     } finally {
+      previews.forEach((p) => URL.revokeObjectURL(p.url))
+      setGalleryPreviews([])
       setUploadingGallery(false)
     }
   }
@@ -301,7 +318,7 @@ function ProductFormModal({
     }
   }
 
-  // ─── Review handlers ──────────────────────────────────────
+  // ─── Review handlers ───────────────────────────
   const handleModerateReview = async (id: number, status: ReviewStatus) => {
     setModeratingId(id)
     try {
@@ -328,7 +345,14 @@ function ProductFormModal({
     }
   }
 
-  // ─── Render ───────────────────────────────────────────────
+  // ─── Featured image display logic ─────────────
+  const featuredImgSrc = uploadingFeatured && featuredPreview
+    ? featuredPreview
+    : productDetail?.featured_image?.url ?? null
+  const featuredImgId = productDetail?.featured_image?.id ?? null
+  const showFeaturedImage = !!featuredImgSrc
+
+  // ─── Render ────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -345,7 +369,7 @@ function ProductFormModal({
             <TabsTrigger value="reviews" disabled={!productId}>Reviews</TabsTrigger>
           </TabsList>
 
-          {/* ── General ─────────────────────────────────────── */}
+          {/* ── General ─────────────────────────────── */}
           <TabsContent value="general" className="pt-4">
             <form id="product-form" onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -461,10 +485,7 @@ function ProductFormModal({
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <div className="flex items-center justify-between p-3 border border-zinc-200 rounded-lg">
                   <Label className="text-sm font-medium cursor-pointer">Active</Label>
-                  <Switch
-                    checked={form.is_active}
-                    onCheckedChange={(v) => set('is_active', v)}
-                  />
+                  <Switch checked={form.is_active} onCheckedChange={(v) => set('is_active', v)} />
                 </div>
                 <div className="flex items-center justify-between p-3 border border-zinc-200 rounded-lg">
                   <Label className="text-sm font-medium cursor-pointer">Featured</Label>
@@ -477,62 +498,88 @@ function ProductFormModal({
             </form>
           </TabsContent>
 
-          {/* ── Media ───────────────────────────────────────── */}
+          {/* ── Media ───────────────────────────────── */}
           <TabsContent value="media" className="pt-4 space-y-6">
             {detailLoading ? (
-              <div className="py-12 text-center text-zinc-500 text-sm">Loading media…</div>
+              <div className="py-12 flex items-center justify-center gap-2 text-zinc-500 text-sm">
+                <Loader2 size={16} className="animate-spin" />
+                Loading media…
+              </div>
             ) : (
               <>
                 {/* Featured image */}
                 <div>
                   <h3 className="text-sm font-semibold text-zinc-900 mb-3">Featured Image</h3>
-                  {productDetail?.featured_image ? (
+                  {showFeaturedImage ? (
                     <div className="flex items-start gap-4">
-                      <div className="relative group">
+                      <div className="relative group w-32 h-32 flex-shrink-0">
                         <img
-                          src={productDetail.featured_image.url}
+                          src={featuredImgSrc!}
                           alt="Featured"
-                          className="w-32 h-32 object-cover rounded-lg border border-zinc-200"
+                          className={`w-32 h-32 object-cover rounded-lg border border-zinc-200 transition-opacity ${
+                            uploadingFeatured || deletingMediaId === featuredImgId
+                              ? 'opacity-50'
+                              : ''
+                          }`}
                         />
-                        <button
-                          onClick={() => handleDeleteMedia(productDetail.featured_image!.id)}
-                          disabled={deletingMediaId === productDetail.featured_image.id}
-                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-                        >
-                          <X size={12} />
-                        </button>
+                        {(uploadingFeatured || deletingMediaId === featuredImgId) && (
+                          <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                            <Loader2 size={20} className="animate-spin text-zinc-600" />
+                          </div>
+                        )}
+                        {!uploadingFeatured &&
+                          featuredImgId !== null &&
+                          deletingMediaId !== featuredImgId && (
+                            <button
+                              onClick={() => handleDeleteMedia(featuredImgId!)}
+                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
                       </div>
-                      <div>
-                        <p className="text-xs text-zinc-500 mb-2">Current featured image</p>
-                        <label className="cursor-pointer inline-flex items-center gap-1.5 text-sm px-3 py-1.5 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
-                          <Upload size={14} />
-                          {uploadingFeatured ? 'Uploading…' : 'Replace'}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => e.target.files?.[0] && handleFeaturedUpload(e.target.files[0])}
-                            disabled={uploadingFeatured}
-                          />
-                        </label>
-                      </div>
+
+                      {!uploadingFeatured &&
+                        featuredImgId !== null &&
+                        deletingMediaId !== featuredImgId && (
+                          <div>
+                            <p className="text-xs text-zinc-500 mb-2">Current featured image</p>
+                            <label className="cursor-pointer inline-flex items-center gap-1.5 text-sm px-3 py-1.5 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+                              <Upload size={14} />
+                              Replace
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) =>
+                                  e.target.files?.[0] && handleFeaturedUpload(e.target.files[0])
+                                }
+                              />
+                            </label>
+                          </div>
+                        )}
                     </div>
                   ) : (
-                    <label
-                      className={`cursor-pointer block border-2 border-dashed border-zinc-200 rounded-lg p-8 text-center hover:border-zinc-400 transition-colors ${
-                        uploadingFeatured ? 'opacity-50 pointer-events-none' : ''
-                      }`}
-                    >
-                      <Upload size={24} className="mx-auto mb-2 text-zinc-400" />
-                      <p className="text-sm text-zinc-600">
-                        {uploadingFeatured ? 'Uploading…' : 'Click to upload featured image'}
-                      </p>
-                      <p className="text-xs text-zinc-400 mt-1">PNG, JPG, WEBP up to 10MB</p>
+                    <label className="cursor-pointer block border-2 border-dashed border-zinc-200 rounded-lg p-8 text-center hover:border-zinc-400 transition-colors">
+                      {uploadingFeatured ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 size={24} className="animate-spin text-zinc-400" />
+                          <p className="text-sm text-zinc-600">Uploading…</p>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload size={24} className="mx-auto mb-2 text-zinc-400" />
+                          <p className="text-sm text-zinc-600">Click to upload featured image</p>
+                          <p className="text-xs text-zinc-400 mt-1">PNG, JPG, WEBP up to 10MB</p>
+                        </>
+                      )}
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => e.target.files?.[0] && handleFeaturedUpload(e.target.files[0])}
+                        onChange={(e) =>
+                          e.target.files?.[0] && handleFeaturedUpload(e.target.files[0])
+                        }
                         disabled={uploadingFeatured}
                       />
                     </label>
@@ -543,37 +590,61 @@ function ProductFormModal({
                 <div>
                   <h3 className="text-sm font-semibold text-zinc-900 mb-3">Gallery</h3>
                   <div className="grid grid-cols-4 gap-3">
+                    {/* Existing gallery images */}
                     {(productDetail?.gallery ?? []).map((img) => (
                       <div key={img.id} className="relative group aspect-square">
                         <img
                           src={img.url}
                           alt="Gallery"
-                          className="w-full h-full object-cover rounded-lg border border-zinc-200"
+                          className={`w-full h-full object-cover rounded-lg border border-zinc-200 transition-opacity ${
+                            deletingMediaId === img.id ? 'opacity-50' : ''
+                          }`}
                         />
-                        <button
-                          onClick={() => handleDeleteMedia(img.id)}
-                          disabled={deletingMediaId === img.id}
-                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-                        >
-                          <X size={12} />
-                        </button>
+                        {deletingMediaId === img.id ? (
+                          <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/30">
+                            <Loader2 size={16} className="animate-spin text-zinc-600" />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleDeleteMedia(img.id)}
+                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
                       </div>
                     ))}
+
+                    {/* Optimistic upload previews */}
+                    {galleryPreviews.map((p) => (
+                      <div key={p.key} className="relative aspect-square">
+                        <img
+                          src={p.url}
+                          alt="Uploading"
+                          className="w-full h-full object-cover rounded-lg border border-zinc-200 opacity-50"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                          <Loader2 size={16} className="animate-spin text-zinc-600" />
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add photos button */}
                     <label
                       className={`cursor-pointer aspect-square border-2 border-dashed border-zinc-200 rounded-lg flex flex-col items-center justify-center hover:border-zinc-400 transition-colors ${
                         uploadingGallery ? 'opacity-50 pointer-events-none' : ''
                       }`}
                     >
                       <Upload size={20} className="text-zinc-400 mb-1" />
-                      <span className="text-xs text-zinc-500">
-                        {uploadingGallery ? 'Uploading…' : 'Add photos'}
-                      </span>
+                      <span className="text-xs text-zinc-500">Add photos</span>
                       <input
                         type="file"
                         accept="image/*"
                         multiple
                         className="hidden"
-                        onChange={(e) => e.target.files?.length && handleGalleryUpload(e.target.files)}
+                        onChange={(e) =>
+                          e.target.files?.length && handleGalleryUpload(e.target.files)
+                        }
                         disabled={uploadingGallery}
                       />
                     </label>
@@ -583,7 +654,7 @@ function ProductFormModal({
             )}
           </TabsContent>
 
-          {/* ── Reviews ─────────────────────────────────────── */}
+          {/* ── Reviews ─────────────────────────────── */}
           <TabsContent value="reviews" className="pt-4">
             <div className="flex gap-1 mb-4 border border-zinc-200 rounded-lg overflow-hidden w-fit text-sm">
               {(['all', 'Pending', 'Approved', 'Rejected'] as ReviewFilterTab[]).map((status) => (
@@ -680,7 +751,11 @@ function ProductFormModal({
                           className="p-1.5 rounded hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors disabled:opacity-50"
                           title="Delete"
                         >
-                          <Trash2 size={15} />
+                          {deletingReviewId === review.id ? (
+                            <Loader2 size={15} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -709,7 +784,16 @@ function ProductFormModal({
               disabled={submitting || descriptionLoading}
               className="bg-rose-900 hover:bg-rose-950 text-white"
             >
-              {submitting ? 'Saving…' : editing ? 'Save Changes' : 'Create Product'}
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  Saving…
+                </span>
+              ) : editing ? (
+                'Save Changes'
+              ) : (
+                'Create Product'
+              )}
             </Button>
           )}
         </DialogFooter>
@@ -727,14 +811,12 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filters
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [page, setPage] = useState(1)
 
-  // Modals
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ApiProduct | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ApiProduct | null>(null)
@@ -789,21 +871,6 @@ export default function AdminProductsPage() {
     setPage(1)
   }
 
-  const handleActiveFilterChange = (v: ActiveFilter) => {
-    setActiveFilter(v)
-    setPage(1)
-  }
-
-  const openCreate = () => {
-    setEditingProduct(null)
-    setShowForm(true)
-  }
-
-  const openEdit = (product: ApiProduct) => {
-    setEditingProduct(product)
-    setShowForm(true)
-  }
-
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
@@ -837,7 +904,7 @@ export default function AdminProductsPage() {
           </p>
         </div>
         <Button
-          onClick={openCreate}
+          onClick={() => { setEditingProduct(null); setShowForm(true) }}
           className="bg-rose-900 hover:bg-rose-950 text-white gap-2"
         >
           <Plus size={16} />
@@ -862,11 +929,7 @@ export default function AdminProductsPage() {
             {searchInput && (
               <button
                 type="button"
-                onClick={() => {
-                  setSearchInput('')
-                  setSearch('')
-                  setPage(1)
-                }}
+                onClick={() => { setSearchInput(''); setSearch(''); setPage(1) }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2"
               >
                 <X size={14} className="text-zinc-400 hover:text-zinc-700" />
@@ -878,11 +941,9 @@ export default function AdminProductsPage() {
             {(['all', '1', '0'] as ActiveFilter[]).map((v) => (
               <button
                 key={v}
-                onClick={() => handleActiveFilterChange(v)}
+                onClick={() => { setActiveFilter(v); setPage(1) }}
                 className={`px-3 py-2 transition-colors ${
-                  activeFilter === v
-                    ? 'bg-zinc-900 text-white'
-                    : 'text-zinc-600 hover:bg-zinc-50'
+                  activeFilter === v ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-50'
                 }`}
               >
                 {v === 'all' ? 'All' : v === '1' ? 'Active' : 'Inactive'}
@@ -892,10 +953,7 @@ export default function AdminProductsPage() {
 
           <Select
             value={sortBy}
-            onValueChange={(v) => {
-              setSortBy(v as SortOption)
-              setPage(1)
-            }}
+            onValueChange={(v) => { setSortBy(v as SortOption); setPage(1) }}
           >
             <SelectTrigger className="w-44">
               <SelectValue />
@@ -945,21 +1003,11 @@ export default function AdminProductsPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-20" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-16" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-10 mx-auto" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-14 mx-auto rounded-full" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-7 w-16 ml-auto" />
-                      </TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-10 mx-auto" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-14 mx-auto rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-7 w-16 ml-auto" /></TableCell>
                     </TableRow>
                   ))
                 : products.length === 0 ? (
@@ -982,13 +1030,13 @@ export default function AdminProductsPage() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded bg-zinc-100 flex-shrink-0 overflow-hidden">
-                              {product.featured_image?.url ? (
+                              {product.featured_image?.url && (
                                 <img
                                   src={product.featured_image.url}
                                   alt={product.name}
                                   className="w-full h-full object-cover"
                                 />
-                              ) : null}
+                              )}
                             </div>
                             <div>
                               <p className="text-sm font-medium text-zinc-900 line-clamp-1">
@@ -998,11 +1046,9 @@ export default function AdminProductsPage() {
                             </div>
                           </div>
                         </TableCell>
-
                         <TableCell>
                           <span className="text-sm text-zinc-600">{product.category.name}</span>
                         </TableCell>
-
                         <TableCell>
                           {hasDiscount ? (
                             <div>
@@ -1019,7 +1065,6 @@ export default function AdminProductsPage() {
                             </span>
                           )}
                         </TableCell>
-
                         <TableCell className="text-center">
                           <span
                             className={`text-sm font-medium ${
@@ -1033,7 +1078,6 @@ export default function AdminProductsPage() {
                             {product.stock}
                           </span>
                         </TableCell>
-
                         <TableCell className="text-center">
                           <div className="flex flex-col items-center gap-1">
                             <Badge
@@ -1052,11 +1096,10 @@ export default function AdminProductsPage() {
                             )}
                           </div>
                         </TableCell>
-
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
                             <button
-                              onClick={() => openEdit(product)}
+                              onClick={() => { setEditingProduct(product); setShowForm(true) }}
                               className="p-1.5 rounded hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 transition-colors"
                               title="Edit"
                             >
@@ -1078,7 +1121,6 @@ export default function AdminProductsPage() {
           </Table>
         )}
 
-        {/* Pagination */}
         {!loading && totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-100">
             <p className="text-xs text-zinc-500">
@@ -1134,7 +1176,14 @@ export default function AdminProductsPage() {
               disabled={deleting}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  Deleting…
+                </span>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

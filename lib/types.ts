@@ -160,7 +160,7 @@ export interface CreateCategoryBody {
   is_featured: boolean
 }
 
-export type UpdateCategoryBody = Partial<CreateCategoryBody>
+export type UpdateCategoryBody = CreateCategoryBody
 
 // ─── Media ───────────────────────────────────────────────────────────────────
 
