@@ -11,6 +11,7 @@ import type {
   ApiPostDetail,
   ApiProduct,
   ApiProductDetail,
+  ApiReview,
   ApiValidationError,
   AuthUser,
   ChangePasswordBody,
@@ -45,6 +46,7 @@ import type {
   PromotionFilters,
   ProductVariant,
   CreateVariantBody,
+  ApiCategoryProductsResponse,
 } from './types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.aleenza.store'
@@ -170,13 +172,33 @@ export async function getProduct(
 export async function postReview(
   productId: number,
   body: ReviewBody
-): Promise<unknown> {
+): Promise<ApiReview> {
   const res = await fetch(`${BASE_URL}/api/products/${productId}/reviews`, {
     method: 'POST',
     headers: buildHeaders(),
     body: JSON.stringify(body),
   })
-  return handleResponse(res)
+  return unwrapData<ApiReview>(res)
+}
+
+export async function getCategoryProducts(
+  idOrSlug: string | number,
+  filters: Omit<ProductFilters, 'category_id'> = {}
+): Promise<ApiCategoryProductsResponse> {
+  const params = new URLSearchParams()
+  if (filters.search) params.set('search', filters.search)
+  if (filters.is_featured !== undefined) params.set('is_featured', String(filters.is_featured))
+  if (filters.min_price !== undefined) params.set('min_price', String(filters.min_price))
+  if (filters.max_price !== undefined) params.set('max_price', String(filters.max_price))
+  if (filters.sort) params.set('sort', filters.sort)
+  if (filters.per_page) params.set('per_page', String(filters.per_page))
+  if (filters.page) params.set('page', String(filters.page))
+  const qs = params.toString()
+  const res = await fetch(
+    `${BASE_URL}/api/categories/${idOrSlug}/products${qs ? `?${qs}` : ''}`,
+    { headers: buildHeaders(), cache: 'no-store' }
+  )
+  return handleResponse<ApiCategoryProductsResponse>(res)
 }
 
 // ─── Admin: Auth ──────────────────────────────────────────────────────────────

@@ -13,8 +13,8 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { getProduct, postReview } from '@/lib/api'
-import type { ApiProductDetail, ProductNote } from '@/lib/types'
+import { getProduct, postReview, getCategoryProducts } from '@/lib/api'
+import type { ApiProductDetail, ApiProduct, ApiReview, ProductNote } from '@/lib/types'
 import { useCart } from '@/context/cart-context'
 
 const LENGTHS = ['4.5', '5', '5.5', '6']
@@ -52,7 +52,13 @@ function StarPicker({
   )
 }
 
-function ReviewForm({ productId }: { productId: number }) {
+function ReviewForm({
+  productId,
+  onReviewAdded,
+}: {
+  productId: number
+  onReviewAdded: (review: ApiReview) => void
+}) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [rating, setRating] = useState<number | null>(null)
@@ -72,13 +78,14 @@ function ReviewForm({ productId }: { productId: number }) {
 
     setSubmitting(true)
     try {
-      await postReview(productId, {
+      const newReview = await postReview(productId, {
         name: name.trim(),
         ...(email.trim() && { email: email.trim() }),
         ...(rating && { rating }),
         ...(message.trim() && { message: message.trim() }),
       })
-      toast.success('Review submitted successfully!')
+      onReviewAdded(newReview)
+      toast.success('Review submitted! It will appear once approved.')
       setName('')
       setEmail('')
       setRating(null)
@@ -91,8 +98,8 @@ function ReviewForm({ productId }: { productId: number }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t border-zinc-100">
-      <h4 className="text-sm font-medium text-zinc-900">Write a Review</h4>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h4 className="font-serif text-lg text-zinc-900">Write a Review</h4>
 
       <div>
         <label className="text-xs text-zinc-500 mb-1.5 block">Your Rating</label>
@@ -136,7 +143,7 @@ function ReviewForm({ productId }: { productId: number }) {
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-2.5 bg-zinc-900 text-white text-sm font-medium rounded hover:bg-zinc-800 transition-colors disabled:opacity-60"
+        className="px-8 py-2.5 bg-zinc-900 text-white text-sm font-medium rounded hover:bg-zinc-800 transition-colors disabled:opacity-60"
       >
         {submitting ? 'Submitting…' : 'Submit Review'}
       </button>
@@ -186,6 +193,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedLength, setSelectedLength] = useState('5')
   const [quantity, setQuantity] = useState(1)
+  const [reviews, setReviews] = useState<ApiReview[]>([])
+  const [similarProducts, setSimilarProducts] = useState<ApiProduct[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -196,8 +205,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       .then((data) => {
         if (!cancelled) {
           setProduct(data)
+          setReviews(data.reviews ?? [])
           setSelectedImage(0)
           setQuantity(1)
+
+          if (data.category?.slug) {
+            getCategoryProducts(data.category.slug, { per_page: 9 })
+              .then((res) => {
+                if (!cancelled) {
+                  setSimilarProducts(res.data.filter((p) => p.id !== data.id))
+                }
+              })
+              .catch(() => {})
+          }
         }
       })
       .catch((err: Error) => {
@@ -254,6 +274,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     toast.success(`${product.name} added to cart!`, {
       description: `Rs ${(product.discounted_price ?? product.price).toLocaleString()} · ${selectedLength}m`,
     })
+  }
+
+  const handleReviewAdded = (review: ApiReview) => {
+    setReviews((prev) => [review, ...prev])
   }
 
   return (
@@ -485,7 +509,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
-            {/* Accordions */}
+            {/* Product Notes */}
             {(product.notes as ProductNote[]).length > 0 && (
               <div className="pt-6 border-t border-zinc-200 space-y-3">
                 <h3 className="text-sm font-medium text-zinc-900">Product Notes</h3>
@@ -531,64 +555,162 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </p>
                 </AccordionContent>
               </AccordionItem>
-
-              <AccordionItem value="reviews">
-                <AccordionTrigger className="text-sm font-medium text-zinc-900">
-                  Reviews{product.reviews_count > 0 ? ` (${product.reviews_count})` : ''}
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    {(product.reviews ?? []).length > 0 ? (
-                      <div className="space-y-4">
-                        {(product.reviews ?? []).map((review) => (
-                          <div
-                            key={review.id}
-                            className="pb-4 border-b border-zinc-100 last:border-0"
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium text-zinc-900">
-                                {review.name}
-                              </span>
-                              <span className="text-xs text-zinc-400">
-                                {new Date(review.created_at).toLocaleDateString('en-PK', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </span>
-                            </div>
-                            {review.rating > 0 && (
-                              <div className="flex gap-0.5 mb-1.5">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`w-3 h-3 ${i < Math.floor(review.rating)
-                                      ? 'fill-amber-400 text-amber-400'
-                                      : 'text-zinc-300'
-                                      }`}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            {review.message && (
-                              <p className="text-sm text-zinc-600">{review.message}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-zinc-500">
-                        No reviews yet — be the first!
-                      </p>
-                    )}
-
-                    <ReviewForm productId={product.id} />
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
             </Accordion>
           </motion.div>
         </div>
+
+        {/* ── Reviews Section ──────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-20 pt-12 border-t border-zinc-200"
+        >
+          <div className="flex items-baseline gap-3 mb-8">
+            <h2 className="font-serif text-2xl text-zinc-900">
+              Customer Reviews
+            </h2>
+            {reviews.length > 0 && (
+              <span className="text-sm text-zinc-500">({reviews.length})</span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* Reviews list */}
+            <div>
+              {reviews.length > 0 ? (
+                <div className="space-y-6">
+                  {reviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="pb-6 border-b border-zinc-100 last:border-0"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <span className="text-sm font-medium text-zinc-900">
+                            {review.name}
+                          </span>
+                          {review.rating > 0 && (
+                            <div className="flex gap-0.5 mt-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-3.5 h-3.5 ${i < Math.floor(review.rating)
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : 'text-zinc-200'
+                                    }`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-zinc-400 flex-shrink-0">
+                          {new Date(review.created_at).toLocaleDateString('en-PK', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                      {review.message && (
+                        <p className="text-sm text-zinc-600 leading-relaxed">{review.message}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-zinc-500">
+                  <Star className="w-8 h-8 mx-auto mb-3 text-zinc-200" />
+                  <p className="text-sm">No reviews yet — be the first!</p>
+                </div>
+              )}
+            </div>
+
+            {/* Write a review */}
+            <div className="bg-white rounded-xl border border-zinc-200 p-6">
+              <ReviewForm productId={product.id} onReviewAdded={handleReviewAdded} />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ── Similar Products ─────────────────────────────────────────────── */}
+        {similarProducts.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-20 pt-12 border-t border-zinc-200"
+          >
+            <div className="flex items-baseline justify-between mb-8">
+              <h2 className="font-serif text-2xl text-zinc-900">You May Also Like</h2>
+              <Link
+                href={`/shop?category=${product.category?.slug}`}
+                className="text-sm text-rose-900 hover:underline font-medium"
+              >
+                View all {product.category?.name} →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+              {similarProducts.slice(0, 8).map((p) => {
+                const price = p.discounted_price ?? p.price
+                const hasOffer = p.discounted_price != null && p.discounted_price < p.price
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/product/${p.slug}`}
+                    className="group bg-white rounded-xl border border-zinc-200 overflow-hidden hover:shadow-md transition-shadow"
+                  >
+                    <div className="aspect-square bg-zinc-100 overflow-hidden">
+                      {p.featured_image?.url ? (
+                        <img
+                          src={p.featured_image.url}
+                          alt={p.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-300 text-xs">
+                          No image
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="text-sm font-medium text-zinc-900 line-clamp-1 mb-1">
+                        {p.name}
+                      </p>
+                      {(p.average_rating ?? 0) > 0 && (
+                        <div className="flex items-center gap-1 mb-1.5">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-3 h-3 ${i < Math.floor(p.average_rating ?? 0)
+                                  ? 'fill-amber-400 text-amber-400'
+                                  : 'text-zinc-200'
+                                  }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-zinc-400">{(p.average_rating ?? 0).toFixed(1)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-zinc-900">
+                          Rs {price.toLocaleString()}
+                        </span>
+                        {hasOffer && (
+                          <span className="text-xs text-zinc-400 line-through">
+                            Rs {p.price.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   )

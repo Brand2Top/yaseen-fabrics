@@ -498,3 +498,17 @@ export interface CreateVariantBody {
   is_active: boolean
   attribute_value_ids: number[]
 }
+
+// ─── Category Products ────────────────────────────────────────────────────────
+
+export interface ApiCategoryHeader {
+  id: number
+  name: string
+  slug: string
+  description?: string | null
+  image?: string | null
+}
+
+export interface ApiCategoryProductsResponse extends ApiPaginatedResponse<ApiProduct> {
+  category: ApiCategoryHeader
+}
