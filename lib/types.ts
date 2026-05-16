@@ -36,7 +36,7 @@ export interface ApiProduct {
   stock: number
   is_active: boolean
   is_featured: boolean
-  average_rating: number
+  average_rating: number | null
   reviews_count: number
   category: ApiProductCategory
   featured_image?: ApiImage | null
@@ -45,17 +45,50 @@ export interface ApiProduct {
 export interface ApiReview {
   id: number
   name: string
-  rating: number
-  message: string
+  email?: string | null
+  phone?: string | null
+  rating: number | null
+  message: string | null
+  status?: 'Approved'
   created_at: string
 }
+
+// ─── Storefront Variants ──────────────────────────────────────────────────────
+
+export interface StorefrontVariantAttribute {
+  attribute_value_id: number
+  attribute: string
+  value: string
+}
+
+export interface StorefrontProductVariant {
+  id: number
+  price: number | null
+  stock: number
+  is_active: boolean
+  attributes: StorefrontVariantAttribute[]
+}
+
+export interface ProductAttributeValue {
+  id: number
+  value: string
+}
+
+export interface ProductAttributeConfig {
+  id: number
+  name: string
+  values: ProductAttributeValue[]
+}
+
+// ─── Product Detail ───────────────────────────────────────────────────────────
 
 export interface ApiProductDetail extends ApiProduct {
   description?: string | null
   gallery: ApiImage[]
   reviews: ApiReview[]
-  variants: unknown[]
+  variants: StorefrontProductVariant[]
   notes: ProductNote[]
+  product_attributes?: ProductAttributeConfig[]
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
@@ -84,7 +117,7 @@ export interface ApiListResponse<T> {
 
 // ─── Filters ──────────────────────────────────────────────────────────────────
 
-export type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'rating'
+export type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'rating' | 'name_asc' | 'name_desc'
 
 export interface ProductFilters {
   search?: string
@@ -326,14 +359,20 @@ export interface CheckoutResponse {
   promotion_applied: { code: string; description: string } | null
 }
 
+export interface CouponPromotion {
+  promotion_id: number
+  type: 'discount' | 'buy_x_get_y'
+  name: string
+  code: string
+  discount_amount: number
+  description: string
+}
+
 export interface CouponValidationResult {
   valid: boolean
-  code: string
-  description?: string
-  discount_amount?: number
-  discount_type?: string
-  discount_value?: number
-  message?: string
+  promotion: CouponPromotion | null
+  error: string | null
+  subtotal: number
 }
 
 // ─── Orders ───────────────────────────────────────────────────────────────────

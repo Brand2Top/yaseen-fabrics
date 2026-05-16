@@ -123,7 +123,7 @@ function CollectionsSection() {
                     {cat.products_count > 0 && (
                       <p className="text-white/70 text-sm mb-3">{cat.products_count} products</p>
                     )}
-                    <Link href="/shop">
+                    <Link href={`/shop?category=${cat.slug}`}>
                       <button className="inline-flex items-center gap-2 text-white hover:gap-3 transition-all duration-300">
                         Explore <ChevronRight size={18} />
                       </button>
@@ -240,7 +240,7 @@ function BestSellersSection() {
                         </h3>
                       </Link>
 
-                      {product.average_rating > 0 && (
+                      {(product.average_rating ?? 0) > 0 && (
                         <div className="flex items-center gap-1 mb-3">
                           <div className="flex gap-0.5">
                             {[...Array(5)].map((_, i) => (
@@ -248,7 +248,7 @@ function BestSellersSection() {
                                 key={i}
                                 size={14}
                                 className={`${
-                                  i < Math.floor(product.average_rating)
+                                  i < Math.floor(product.average_rating ?? 0)
                                     ? 'fill-amber-400 text-amber-400'
                                     : 'text-zinc-300'
                                 }`}
@@ -256,7 +256,7 @@ function BestSellersSection() {
                             ))}
                           </div>
                           <span className="text-xs text-zinc-600 ml-1">
-                            {product.average_rating.toFixed(1)} ({product.reviews_count})
+                            {(product.average_rating ?? 0).toFixed(1)} ({product.reviews_count})
                           </span>
                         </div>
                       )}

@@ -79,8 +79,8 @@ export function CartSidebar() {
                     <h3 className="font-medium text-zinc-900 text-sm mb-1 line-clamp-2">
                       {item.name}
                     </h3>
-                    {item.length && (
-                      <p className="text-xs text-zinc-500 mb-2">Length: {item.length}m</p>
+                    {item.variantLabel && (
+                      <p className="text-xs text-zinc-500 mb-2">{item.variantLabel}</p>
                     )}
                     <p className="font-serif text-sm text-zinc-900 font-semibold">
                       Rs {(item.price * item.quantity).toLocaleString()}

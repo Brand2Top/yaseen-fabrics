@@ -623,7 +623,7 @@ export async function checkout(body: CheckoutBody): Promise<CheckoutResponse> {
 
 export async function validateCoupon(
   code: string,
-  items: { product_id: number; quantity: number }[]
+  items: { product_id: number; product_variant_id: number | null; quantity: number }[]
 ): Promise<CouponValidationResult> {
   const res = await fetch(`${BASE_URL}/api/promotions/validate`, {
     method: 'POST',
@@ -632,6 +632,7 @@ export async function validateCoupon(
   })
   return handleResponse(res)
 }
+
 
 // ─── Admin: Orders ────────────────────────────────────────────────────────────
 

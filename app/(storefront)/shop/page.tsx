@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Sliders, Search, X } from 'lucide-react'
 import Link from 'next/link'
@@ -30,6 +31,8 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'rating', label: 'Highest Rated' },
   { value: 'price_asc', label: 'Price: Low to High' },
   { value: 'price_desc', label: 'Price: High to Low' },
+  { value: 'name_asc', label: 'Name: A → Z' },
+  { value: 'name_desc', label: 'Name: Z → A' },
 ]
 
 function ProductCardSkeleton() {
@@ -88,14 +91,14 @@ function ProductCard({ product }: { product: ApiProduct }) {
               {product.name}
             </h3>
 
-            {product.average_rating > 0 && (
+            {(product.average_rating ?? 0) > 0 && (
               <div className="flex items-center gap-1 mb-3">
                 <div className="flex">
                   {[...Array(5)].map((_, i) => (
                     <span
                       key={i}
                       className={`text-sm ${
-                        i < Math.floor(product.average_rating)
+                        i < Math.floor(product.average_rating ?? 0)
                           ? 'text-amber-400'
                           : 'text-zinc-300'
                       }`}
@@ -137,7 +140,8 @@ function ProductCard({ product }: { product: ApiProduct }) {
   )
 }
 
-export default function ShopPage() {
+function ShopContent() {
+  const searchParams = useSearchParams()
   const [products, setProducts] = useState<ApiProduct[]>([])
   const [categories, setCategories] = useState<ApiCategory[]>([])
   const [meta, setMeta] = useState<PaginationMeta | null>(null)
@@ -152,10 +156,17 @@ export default function ShopPage() {
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
+    const catSlug = searchParams.get('category')
     getCategories()
-      .then((res) => setCategories(res.data))
+      .then((res) => {
+        setCategories(res.data)
+        if (catSlug) {
+          const match = res.data.find((c) => c.slug === catSlug)
+          if (match) setSelectedCategoryId(match.id)
+        }
+      })
       .catch(() => {})
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
     let cancelled = false
@@ -491,5 +502,13 @@ export default function ShopPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense>
+      <ShopContent />
+    </Suspense>
   )
 }

@@ -11,7 +11,7 @@ export interface CartItem {
   price: number
   quantity: number
   image?: string
-  length?: string
+  variantLabel?: string
 }
 
 interface CouponState {
@@ -82,12 +82,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const result = await validateCoupon(
         code.trim().toUpperCase(),
-        items.map((i) => ({ product_id: i.product_id, quantity: i.quantity }))
+        items.map((i) => ({
+          product_id: i.product_id,
+          product_variant_id: i.product_variant_id ?? null,
+          quantity: i.quantity,
+        }))
       )
+      if (!result.valid || !result.promotion) {
+        throw new Error(result.error ?? 'Invalid promo code')
+      }
       setCoupon({
-        code: result.code ?? code.trim().toUpperCase(),
-        description: result.description ?? `${code} applied`,
-        discountAmount: result.discount_amount ?? 0,
+        code: result.promotion.code,
+        description: result.promotion.description,
+        discountAmount: result.promotion.discount_amount,
         valid: true,
       })
     } finally {

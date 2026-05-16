@@ -323,8 +323,8 @@ export default function CheckoutPage() {
                       <p className="text-sm font-medium text-zinc-900 line-clamp-2">
                         {item.name}
                       </p>
-                      {item.length && (
-                        <p className="text-xs text-zinc-500 mt-0.5">{item.length}</p>
+                      {item.variantLabel && (
+                        <p className="text-xs text-zinc-500 mt-0.5">{item.variantLabel}</p>
                       )}
                       <p className="text-xs text-zinc-500 mt-0.5">
                         {item.quantity} × Rs {item.price.toLocaleString()}

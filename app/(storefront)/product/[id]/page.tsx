@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, useMemo, use } from 'react'
 import { motion } from 'framer-motion'
 import { Star, Heart, Share2, Truck, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
@@ -14,10 +14,14 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { getProduct, postReview, getCategoryProducts } from '@/lib/api'
-import type { ApiProductDetail, ApiProduct, ApiReview, ProductNote } from '@/lib/types'
+import type {
+  ApiProductDetail,
+  ApiProduct,
+  ApiReview,
+  ProductNote,
+  StorefrontProductVariant,
+} from '@/lib/types'
 import { useCart } from '@/context/cart-context'
-
-const LENGTHS = ['4.5', '5', '5.5', '6']
 
 function StarPicker({
   value,
@@ -191,10 +195,29 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState(0)
-  const [selectedLength, setSelectedLength] = useState('5')
+  const [selectedValues, setSelectedValues] = useState<Record<number, number>>({})
   const [quantity, setQuantity] = useState(1)
   const [reviews, setReviews] = useState<ApiReview[]>([])
   const [similarProducts, setSimilarProducts] = useState<ApiProduct[]>([])
+
+  const productAttributes = product?.product_attributes ?? []
+  const hasVariants = productAttributes.length > 0
+
+  const variantMap = useMemo(() => {
+    const map = new Map<string, StorefrontProductVariant>()
+    product?.variants.forEach((v) => {
+      const key = v.attributes.map((a) => a.attribute_value_id).sort().join(',')
+      map.set(key, v)
+    })
+    return map
+  }, [product?.variants])
+
+  const selectedVariant = useMemo(() => {
+    if (!hasVariants) return null
+    if (Object.keys(selectedValues).length !== productAttributes.length) return null
+    const key = Object.values(selectedValues).sort().join(',')
+    return variantMap.get(key) ?? null
+  }, [selectedValues, variantMap, productAttributes.length, hasVariants])
 
   useEffect(() => {
     let cancelled = false
@@ -207,6 +230,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           setProduct(data)
           setReviews(data.reviews ?? [])
           setSelectedImage(0)
+          setSelectedValues({})
           setQuantity(1)
 
           if (data.category?.slug) {
@@ -253,26 +277,55 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     ...(product.gallery ?? []),
   ]
 
-  const hasDiscount =
-    product.discounted_price != null && product.discounted_price < product.price
-
+  const allSelected = !hasVariants || productAttributes.every((a) => selectedValues[a.id] !== undefined)
+  const showingBasePrice = !selectedVariant || selectedVariant.price === null
+  const hasDiscount = showingBasePrice && product.discounted_price != null && product.discounted_price < product.price
   const discountPercent = hasDiscount
     ? Math.round(((product.price - product.discounted_price!) / product.price) * 100)
     : 0
+  const displayPrice = selectedVariant?.price ?? (product.discounted_price ?? product.price)
+  const effectiveStock = hasVariants ? (selectedVariant?.stock ?? 0) : product.stock
+  const canAddToCart = hasVariants
+    ? (allSelected && selectedVariant !== null && selectedVariant.is_active && selectedVariant.stock > 0)
+    : (product.stock > 0)
+
+  const buttonText = !hasVariants
+    ? (product.stock === 0 ? 'Out of Stock' : 'Add to Cart')
+    : !allSelected
+      ? 'Select Options'
+      : !selectedVariant
+        ? 'Not Available'
+        : selectedVariant.stock === 0
+          ? 'Out of Stock'
+          : 'Add to Cart'
 
   const handleAddToCart = () => {
+    if (hasVariants && !allSelected) {
+      toast.error('Please select all options')
+      return
+    }
+    if (hasVariants && !selectedVariant) {
+      toast.error('This combination is not available')
+      return
+    }
+
+    const variantLabel = selectedVariant
+      ? selectedVariant.attributes.map((a) => a.value).join(' / ')
+      : undefined
+    const cartItemId = selectedVariant ? `${product.id}-${selectedVariant.id}` : String(product.id)
+
     addItem({
-      id: String(product.id),
+      id: cartItemId,
       product_id: product.id,
-      product_variant_id: null,
+      product_variant_id: selectedVariant?.id ?? null,
       name: product.name,
-      price: product.discounted_price ?? product.price,
+      price: displayPrice,
       quantity,
       image: product.featured_image?.url,
-      length: selectedLength,
+      variantLabel,
     })
     toast.success(`${product.name} added to cart!`, {
-      description: `Rs ${(product.discounted_price ?? product.price).toLocaleString()} · ${selectedLength}m`,
+      description: `Rs ${displayPrice.toLocaleString()}${variantLabel ? ` · ${variantLabel}` : ''}`,
     })
   }
 
@@ -398,7 +451,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 {hasDiscount ? (
                   <>
                     <span className="font-serif text-2xl text-zinc-900">
-                      Rs {product.discounted_price!.toLocaleString()}
+                      Rs {displayPrice.toLocaleString()}
                     </span>
                     <span className="font-serif text-lg text-zinc-400 line-through">
                       Rs {product.price.toLocaleString()}
@@ -409,7 +462,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </>
                 ) : (
                   <span className="font-serif text-2xl text-zinc-900">
-                    Rs {product.price.toLocaleString()}
+                    Rs {displayPrice.toLocaleString()}
                   </span>
                 )}
               </div>
@@ -418,38 +471,63 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-zinc-600 leading-relaxed">{product.description}</p>
               )}
 
-              {product.stock > 0 && product.stock <= 10 && (
+              {!hasVariants && product.stock > 0 && product.stock <= 10 && (
                 <p className="text-amber-600 text-sm mt-3">
                   Only {product.stock} left in stock — order soon
                 </p>
               )}
-              {product.stock === 0 && (
+              {!hasVariants && product.stock === 0 && (
                 <p className="text-red-600 text-sm mt-3 font-medium">Out of stock</p>
+              )}
+              {hasVariants && allSelected && !selectedVariant && (
+                <p className="text-red-600 text-sm mt-3">This combination is not available</p>
+              )}
+              {hasVariants && allSelected && selectedVariant && selectedVariant.stock === 0 && (
+                <p className="text-red-600 text-sm mt-3 font-medium">Out of stock</p>
+              )}
+              {hasVariants && allSelected && selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 5 && (
+                <p className="text-amber-600 text-sm mt-3">
+                  Only {selectedVariant.stock} left in stock — order soon
+                </p>
               )}
             </div>
 
             {/* Options */}
             <div className="space-y-6 pt-6 border-t border-zinc-200">
-              <div>
-                <label className="block text-sm font-medium text-zinc-900 mb-3">
-                  Length (Meters)
-                </label>
-                <ToggleGroup
-                  type="single"
-                  value={selectedLength}
-                  onValueChange={(v) => v && setSelectedLength(v)}
-                >
-                  {LENGTHS.map((length) => (
-                    <ToggleGroupItem
-                      key={length}
-                      value={length}
-                      className="border-2 border-zinc-300 data-[state=on]:border-zinc-900 data-[state=on]:bg-zinc-900 data-[state=on]:text-white"
+              {/* Variant attribute selectors */}
+              {hasVariants && productAttributes.map((attr) => {
+                const selected = selectedValues[attr.id]
+                return (
+                  <div key={attr.id}>
+                    <label className="block text-sm font-medium text-zinc-900 mb-3">
+                      {attr.name}
+                      {selected !== undefined && (
+                        <span className="ml-2 text-zinc-500 font-normal">
+                          — {attr.values.find((v) => v.id === selected)?.value}
+                        </span>
+                      )}
+                    </label>
+                    <ToggleGroup
+                      type="single"
+                      value={selected !== undefined ? String(selected) : ''}
+                      onValueChange={(v) => {
+                        if (v) setSelectedValues((prev) => ({ ...prev, [attr.id]: Number(v) }))
+                      }}
+                      className="flex flex-wrap gap-2"
                     >
-                      {length}m
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
+                      {attr.values.map((val) => (
+                        <ToggleGroupItem
+                          key={val.id}
+                          value={String(val.id)}
+                          className="border-2 border-zinc-300 data-[state=on]:border-zinc-900 data-[state=on]:bg-zinc-900 data-[state=on]:text-white"
+                        >
+                          {val.value}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </div>
+                )
+              })}
 
               <div>
                 <label className="block text-sm font-medium text-zinc-900 mb-3">Quantity</label>
@@ -463,7 +541,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <span className="text-lg font-medium w-8 text-center">{quantity}</span>
                   <button
                     onClick={() =>
-                      setQuantity(Math.min(product.stock > 0 ? product.stock : 99, quantity + 1))
+                      setQuantity(Math.min(effectiveStock > 0 ? effectiveStock : 99, quantity + 1))
                     }
                     className="px-3 py-2 border border-zinc-300 rounded hover:bg-zinc-100 transition-colors"
                   >
@@ -477,14 +555,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-3 pt-6 border-t border-zinc-200">
               <button
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={!canAddToCart}
                 className="w-full bg-rose-900 text-white py-4 rounded-lg font-medium text-lg hover:bg-rose-950 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                {buttonText}
               </button>
               <button
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={!canAddToCart}
                 className="w-full border-2 border-zinc-900 text-zinc-900 py-4 rounded-lg font-medium hover:bg-zinc-900 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Buy Now
@@ -510,10 +588,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Product Notes */}
-            {(product.notes as ProductNote[]).length > 0 && (
+            {product.notes.length > 0 && (
               <div className="pt-6 border-t border-zinc-200 space-y-3">
                 <h3 className="text-sm font-medium text-zinc-900">Product Notes</h3>
-                {(product.notes as ProductNote[]).map((note) => (
+                {product.notes.map((note) => (
                   <div key={note.id} className="bg-amber-50 border border-amber-100 rounded-lg p-4">
                     <p className="text-sm font-medium text-zinc-900 mb-1">{note.title}</p>
                     <p className="text-sm text-zinc-600 leading-relaxed">{note.content}</p>
@@ -590,12 +668,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                           <span className="text-sm font-medium text-zinc-900">
                             {review.name}
                           </span>
-                          {review.rating > 0 && (
+                          {(review.rating ?? 0) > 0 && (
                             <div className="flex gap-0.5 mt-1">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`w-3.5 h-3.5 ${i < Math.floor(review.rating)
+                                  className={`w-3.5 h-3.5 ${i < Math.floor(review.rating ?? 0)
                                     ? 'fill-amber-400 text-amber-400'
                                     : 'text-zinc-200'
                                     }`}
