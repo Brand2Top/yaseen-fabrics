@@ -10,7 +10,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { getProduct, postReview, getCategoryProducts } from '@/lib/api'
@@ -536,35 +535,61 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-6 pt-6 border-t border-zinc-200">
               {/* Variant attribute selectors */}
               {hasVariants && productAttributes.map((attr) => {
-                const selected = selectedValues[attr.id]
+                const selectedId = selectedValues[attr.id]
+                const selectedVal = attr.values.find((v) => v.id === selectedId)
                 return (
                   <div key={attr.id}>
-                    <label className="block text-sm font-medium text-zinc-900 mb-3">
-                      {attr.name}
-                      {selected !== undefined && (
-                        <span className="ml-2 text-zinc-500 font-normal">
-                          — {attr.values.find((v) => v.id === selected)?.value}
-                        </span>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-medium text-zinc-900">{attr.name}</span>
+                      {selectedVal && (
+                        attr.is_color ? (
+                          <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+                            <span
+                              className="inline-block w-3.5 h-3.5 rounded-full border border-zinc-300"
+                              style={{ backgroundColor: selectedVal.color_hex ?? '#ccc' }}
+                            />
+                            {selectedVal.value}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-zinc-500">— {selectedVal.value}</span>
+                        )
                       )}
-                    </label>
-                    <ToggleGroup
-                      type="single"
-                      value={selected !== undefined ? String(selected) : ''}
-                      onValueChange={(v) => {
-                        if (v) setSelectedValues((prev) => ({ ...prev, [attr.id]: Number(v) }))
-                      }}
-                      className="flex flex-wrap gap-2"
-                    >
-                      {attr.values.map((val) => (
-                        <ToggleGroupItem
-                          key={val.id}
-                          value={String(val.id)}
-                          className="border-2 border-zinc-300 data-[state=on]:border-zinc-900 data-[state=on]:bg-zinc-900 data-[state=on]:text-white"
-                        >
-                          {val.value}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {attr.values.map((val) => {
+                        const isSelected = selectedId === val.id
+                        if (attr.is_color) {
+                          return (
+                            <button
+                              key={val.id}
+                              type="button"
+                              title={val.value}
+                              onClick={() => setSelectedValues((prev) => ({ ...prev, [attr.id]: val.id }))}
+                              className={`w-9 h-9 rounded-full border-2 transition-all flex-shrink-0 ${
+                                isSelected
+                                  ? 'border-zinc-900 ring-2 ring-zinc-900 ring-offset-2'
+                                  : 'border-zinc-300 hover:border-zinc-500'
+                              }`}
+                              style={{ backgroundColor: val.color_hex ?? '#ccc' }}
+                            />
+                          )
+                        }
+                        return (
+                          <button
+                            key={val.id}
+                            type="button"
+                            onClick={() => setSelectedValues((prev) => ({ ...prev, [attr.id]: val.id }))}
+                            className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all flex-shrink-0 ${
+                              isSelected
+                                ? 'border-zinc-900 bg-zinc-900 text-white'
+                                : 'border-zinc-300 text-zinc-700 hover:border-zinc-600 hover:bg-zinc-50'
+                            }`}
+                          >
+                            {val.value}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 )
               })}

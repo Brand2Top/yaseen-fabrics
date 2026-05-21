@@ -13,15 +13,18 @@ Every request must include the `X-Tenant` header identifying which store to serv
 
 ```ts
 // lib/api.ts
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;   // e.g. https://api.yourdomain.com
-const TENANT   = process.env.NEXT_PUBLIC_TENANT_ID; // e.g. "yaseen" or "aleenza" or "pima"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL; // e.g. https://api.yourdomain.com
+const TENANT = process.env.NEXT_PUBLIC_TENANT_ID; // e.g. "yaseen" or "aleenza" or "pima"
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   const res = await fetch(`${API_BASE}/api/${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
-      'X-Tenant': TENANT,
+      "Content-Type": "application/json",
+      "X-Tenant": TENANT,
       ...init?.headers,
     },
   });
@@ -37,14 +40,19 @@ All list endpoints return the same envelope:
 
 ```ts
 interface Paginated<T> {
-  data:  T[];
-  links: { first: string; last: string; prev: string | null; next: string | null };
-  meta:  {
+  data: T[];
+  links: {
+    first: string;
+    last: string;
+    prev: string | null;
+    next: string | null;
+  };
+  meta: {
     current_page: number;
-    last_page:    number;
-    per_page:     number;
-    total:        number;
-    path:         string;
+    last_page: number;
+    per_page: number;
+    total: number;
+    path: string;
   };
 }
 ```
@@ -59,12 +67,12 @@ Returns a **paginated** list of all categories.
 
 #### Query params
 
-| Param | Type | Default | Values |
-|-------|------|---------|--------|
-| `search` | string | — | Searches name + description |
-| `is_featured` | boolean | — | `true` / `false` |
-| `sort` | string | `newest` | `newest` `oldest` `alpha_asc` `alpha_desc` `most_products` |
-| `per_page` | integer | `20` | 1–100 |
+| Param         | Type    | Default  | Values                                                     |
+| ------------- | ------- | -------- | ---------------------------------------------------------- |
+| `search`      | string  | —        | Searches name + description                                |
+| `is_featured` | boolean | —        | `true` / `false`                                           |
+| `sort`        | string  | `newest` | `newest` `oldest` `alpha_asc` `alpha_desc` `most_products` |
+| `per_page`    | integer | `20`     | 1–100                                                      |
 
 #### Request examples
 
@@ -79,15 +87,15 @@ GET /api/categories?search=electronics&sort=most_products
 
 ```ts
 interface Category {
-  id:             number;
-  name:           string;
-  slug:           string;
-  description:    string | null;
-  is_featured:    boolean;
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_featured: boolean;
   products_count: number;
-  image:          { id: number; url: string } | null;
-  created_at:     string; // ISO 8601
-  updated_at:     string;
+  image: { id: number; url: string } | null;
+  created_at: string; // ISO 8601
+  updated_at: string;
 }
 ```
 
@@ -100,7 +108,9 @@ Use for homepage feature strips.
 
 ```ts
 // Returns { data: Category[] }
-const { data: featured } = await apiFetch<{ data: Category[] }>('categories/featured');
+const { data: featured } = await apiFetch<{ data: Category[] }>(
+  "categories/featured",
+);
 ```
 
 ---
@@ -124,15 +134,15 @@ Returns a **paginated** list of active products.
 
 #### Query params
 
-| Param | Type | Default | Values |
-|-------|------|---------|--------|
-| `search` | string | — | Searches name + description |
-| `category_id` | integer | — | Filter by category ID |
-| `is_featured` | boolean | — | Featured products only |
-| `min_price` | number | — | Price floor (inclusive) |
-| `max_price` | number | — | Price ceiling (inclusive) |
-| `sort` | string | `newest` | `newest` `oldest` `price_asc` `price_desc` `rating` `name_asc` `name_desc` |
-| `per_page` | integer | `15` | 1–100 |
+| Param         | Type    | Default  | Values                                                                     |
+| ------------- | ------- | -------- | -------------------------------------------------------------------------- |
+| `search`      | string  | —        | Searches name + description                                                |
+| `category_id` | integer | —        | Filter by category ID                                                      |
+| `is_featured` | boolean | —        | Featured products only                                                     |
+| `min_price`   | number  | —        | Price floor (inclusive)                                                    |
+| `max_price`   | number  | —        | Price ceiling (inclusive)                                                  |
+| `sort`        | string  | `newest` | `newest` `oldest` `price_asc` `price_desc` `rating` `name_asc` `name_desc` |
+| `per_page`    | integer | `15`     | 1–100                                                                      |
 
 #### Request examples
 
@@ -148,25 +158,25 @@ GET /api/products?sort=name_asc&per_page=100
 
 ```ts
 interface Product {
-  id:               number;
-  name:             string;
-  slug:             string;
-  description:      string;
-  price:            number;
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
   discounted_price: number | null;
-  stock:            number;
-  is_active:        boolean;
-  is_featured:      boolean;
-  average_rating:   number | null;  // rounded to nearest 0.5
-  reviews_count:    number;
-  category:         Category | null;
-  featured_image:   { id: number; url: string } | null;
-  gallery:          { id: number; url: string }[];          // only on show
-  reviews:          ProductReview[];                        // only on show
-  variants:         ProductVariant[];                       // only on show
-  notes:            ProductNote[];                          // only on show — Public notes only
-  created_at:       string;
-  updated_at:       string;
+  stock: number;
+  is_active: boolean;
+  is_featured: boolean;
+  average_rating: number | null; // rounded to nearest 0.5
+  reviews_count: number;
+  category: Category | null;
+  featured_image: { id: number; url: string } | null;
+  gallery: { id: number; url: string }[]; // only on show
+  reviews: ProductReview[]; // only on show
+  variants: ProductVariant[]; // only on show
+  notes: ProductNote[]; // only on show — Public notes only
+  created_at: string;
+  updated_at: string;
 }
 ```
 
@@ -179,7 +189,9 @@ interface Product {
 Returns up to 20 featured active products as a flat array (no pagination).
 
 ```ts
-const { data: featured } = await apiFetch<{ data: Product[] }>('products/featured');
+const { data: featured } = await apiFetch<{ data: Product[] }>(
+  "products/featured",
+);
 ```
 
 ---
@@ -199,47 +211,48 @@ GET /api/products/7
 // Defines which attributes (dimensions) this product uses and what values are available.
 // Use this to build the variant selector UI.
 interface ProductAttributeConfig {
-  id:     number;
-  name:   string;   // e.g. "Color"
+  id: number;
+  name: string; // e.g. "Color"
+  is_color: boolean; // when true, render values as color swatches using color_hex
   values: {
-    id:        number;
-    value:     string;         // e.g. "Red"
-    color_hex: string | null;  // e.g. "#EF4444" — use to render color swatches in the selector UI
+    id: number;
+    value: string; // e.g. "Red"
+    color_hex: string | null; // e.g. "#EF4444" — always present when is_color=true
   }[];
 }
 
 interface ProductVariant {
-  id:               number;
-  price:            number | null;  // null = use product base/discounted price
-  discounted_price: number | null;  // null = no variant-level discount
-  stock:            number;
-  is_active:        boolean;
+  id: number;
+  price: number | null; // null = use product base/discounted price
+  discounted_price: number | null; // null = no variant-level discount
+  stock: number;
+  is_active: boolean;
   // Same attributes as product_attributes but showing which value is selected for this variant
   attributes: {
     attribute_value_id: number;
-    attribute:          string;
-    value:              string;
-    color_hex:          string | null;  // e.g. "#3B82F6" — present when the value is a color
+    attribute: string;
+    value: string;
+    color_hex: string | null; // e.g. "#3B82F6" — present when the value is a color
   }[];
-  images: { id: number; url: string }[];  // per-variant images (may be empty)
+  images: { id: number; url: string }[]; // per-variant images (may be empty)
 }
 
 interface ProductReview {
-  id:         number;
-  name:       string;
-  email:      string;
-  phone:      string | null;
-  rating:     number | null;  // 0.5 increments, 0.5–5.0
-  message:    string | null;
-  status:     'Approved';
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  rating: number | null; // 0.5 increments, 0.5–5.0
+  message: string | null;
+  status: "Approved";
   created_at: string;
 }
 
 interface ProductNote {
-  id:         number;
-  title:      string;
-  content:    string;
-  status:     'Public';   // only Public notes are included on the storefront show endpoint
+  id: number;
+  title: string;
+  content: string;
+  status: "Public"; // only Public notes are included on the storefront show endpoint
   created_at: string;
   updated_at: string;
 }
@@ -250,16 +263,16 @@ The product response includes both `product_attributes` (the available options p
 ```ts
 // Build a lookup map: "attributeValueId,attributeValueId,..." → variant
 const variantMap = new Map<string, ProductVariant>();
-product.variants.forEach(v => {
+product.variants.forEach((v) => {
   const key = v.attributes
-    .map(a => a.attribute_value_id)  // IDs are in the variant's attribute list
+    .map((a) => a.attribute_value_id) // IDs are in the variant's attribute list
     .sort()
-    .join(',');
+    .join(",");
   variantMap.set(key, v);
 });
 
 // When user selects values, find the matching variant:
-const key = selectedValueIds.sort().join(',');
+const key = selectedValueIds.sort().join(",");
 const selectedVariant = variantMap.get(key) ?? null;
 ```
 
@@ -335,11 +348,11 @@ Returns **paginated** published posts.
 
 #### Query params
 
-| Param | Type | Default | Values |
-|-------|------|---------|--------|
-| `search` | string | — | Searches title + excerpt |
-| `sort` | string | `newest` | `newest` `oldest` `alpha_asc` `alpha_desc` |
-| `per_page` | integer | `12` | 1–50 |
+| Param      | Type    | Default  | Values                                     |
+| ---------- | ------- | -------- | ------------------------------------------ |
+| `search`   | string  | —        | Searches title + excerpt                   |
+| `sort`     | string  | `newest` | `newest` `oldest` `alpha_asc` `alpha_desc` |
+| `per_page` | integer | `12`     | 1–50                                       |
 
 #### Request examples
 
@@ -354,17 +367,17 @@ GET /api/posts?page=2&per_page=12
 
 ```ts
 interface Post {
-  id:             number;
-  title:          string;
-  slug:           string;
-  excerpt:        string | null;
-  content:        string;         // full HTML — render only on single post page
-  reading_time:   number;         // minutes (ceil of word_count / 200)
-  is_published:   boolean;
-  published_at:   string | null;  // ISO 8601
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string; // full HTML — render only on single post page
+  reading_time: number; // minutes (ceil of word_count / 200)
+  is_published: boolean;
+  published_at: string | null; // ISO 8601
   featured_image: { id: number; url: string } | null;
-  created_at:     string;
-  updated_at:     string;
+  created_at: string;
+  updated_at: string;
 }
 ```
 
@@ -390,10 +403,10 @@ Returns all active FAQs in `sort_order` sequence (no pagination — FAQs are exp
 
 ```ts
 interface Faq {
-  id:         number;
-  question:   string;
-  answer:     string;
-  is_active:  boolean;
+  id: number;
+  question: string;
+  answer: string;
+  is_active: boolean;
   sort_order: number;
 }
 ```
@@ -432,11 +445,11 @@ Rate limited: 20 requests per minute per IP.
 
 ```ts
 interface EnquiryPayload {
-  name:    string;        // required, max 255
-  email:   string;        // required, valid email
-  phone?:  string;        // optional, max 30
-  subject: string;        // required, max 255
-  message: string;        // required, max 10 000 chars
+  name: string; // required, max 255
+  email: string; // required, valid email
+  phone?: string; // optional, max 30
+  subject: string; // required, max 255
+  message: string; // required, max 10 000 chars
 }
 ```
 
@@ -458,11 +471,11 @@ Rate limited: 10 requests per minute per IP.
 
 ```ts
 interface ReviewPayload {
-  name:     string;           // required
-  email:    string;           // required, valid email
-  phone?:   string;           // optional, max 30
-  rating?:  number;           // 0.5–5.0 in 0.5 increments (e.g. 3.5)
-  message?: string;           // max 5 000 chars
+  name: string; // required
+  email: string; // required, valid email
+  phone?: string; // optional, max 30
+  rating?: number; // 0.5–5.0 in 0.5 increments (e.g. 3.5)
+  message?: string; // max 5 000 chars
   // At least one of rating or message is required
 }
 ```
@@ -485,11 +498,11 @@ Rate limited: 20 requests per minute per IP.
 
 ```ts
 interface ValidatePayload {
-  code:  string;   // the promo code the customer entered — required
+  code: string; // the promo code the customer entered — required
   items: Array<{
-    product_id:         number;
+    product_id: number;
     product_variant_id: number | null;
-    quantity:           number;
+    quantity: number;
   }>;
 }
 ```
@@ -500,35 +513,35 @@ interface ValidatePayload {
 interface ValidateResponse {
   valid: boolean;
   promotion: {
-    promotion_id:    number;
-    type:            'discount' | 'buy_x_get_y';
-    name:            string;
-    code:            string;
+    promotion_id: number;
+    type: "discount" | "buy_x_get_y";
+    name: string;
+    code: string;
     discount_amount: number;
-    description:     string;   // e.g. "SUMMER20 — 20% off (max $50)" or "Buy 2 get 1 free"
+    description: string; // e.g. "SUMMER20 — 20% off (max $50)" or "Buy 2 get 1 free"
   } | null;
-  error:    string | null;   // see error codes below
+  error: string | null; // see error codes below
   subtotal: number;
 }
 ```
 
 #### Error codes
 
-| Code | Meaning |
-|------|---------|
-| `INVALID_CODE` | Code doesn't exist or is inactive |
-| `CODE_EXPIRED` | Outside `ends_at` window |
-| `CODE_MAX_USES_REACHED` | Global usage limit hit |
-| `CODE_MAX_USES_PER_CUSTOMER_REACHED` | This customer already used it |
-| `CODE_MIN_ORDER_NOT_MET` | Cart subtotal below the code's minimum spend |
-| `CODE_NO_ELIGIBLE_ITEMS` | None of the cart items match the code's eligible products |
+| Code                                 | Meaning                                                   |
+| ------------------------------------ | --------------------------------------------------------- |
+| `INVALID_CODE`                       | Code doesn't exist or is inactive                         |
+| `CODE_EXPIRED`                       | Outside `ends_at` window                                  |
+| `CODE_MAX_USES_REACHED`              | Global usage limit hit                                    |
+| `CODE_MAX_USES_PER_CUSTOMER_REACHED` | This customer already used it                             |
+| `CODE_MIN_ORDER_NOT_MET`             | Cart subtotal below the code's minimum spend              |
+| `CODE_NO_ELIGIBLE_ITEMS`             | None of the cart items match the code's eligible products |
 
 #### Usage pattern
 
 ```ts
 // On coupon apply button click
-const check = await apiFetch<ValidateResponse>('promotions/validate', {
-  method: 'POST',
+const check = await apiFetch<ValidateResponse>("promotions/validate", {
+  method: "POST",
   body: JSON.stringify({ code: couponInput, items: cartItems }),
 });
 
@@ -539,12 +552,13 @@ if (!check.valid) {
 }
 
 const promoErrorMessage: Record<string, string> = {
-  INVALID_CODE:                     'This promo code is not valid.',
-  CODE_EXPIRED:                     'This promo code has expired.',
-  CODE_MAX_USES_REACHED:            'This promo code is no longer available.',
-  CODE_MAX_USES_PER_CUSTOMER_REACHED: 'You have already used this code.',
-  CODE_MIN_ORDER_NOT_MET:           'Your order does not meet the minimum spend for this code.',
-  CODE_NO_ELIGIBLE_ITEMS:           'This code does not apply to any items in your cart.',
+  INVALID_CODE: "This promo code is not valid.",
+  CODE_EXPIRED: "This promo code has expired.",
+  CODE_MAX_USES_REACHED: "This promo code is no longer available.",
+  CODE_MAX_USES_PER_CUSTOMER_REACHED: "You have already used this code.",
+  CODE_MIN_ORDER_NOT_MET:
+    "Your order does not meet the minimum spend for this code.",
+  CODE_NO_ELIGIBLE_ITEMS: "This code does not apply to any items in your cart.",
 };
 ```
 
@@ -563,19 +577,19 @@ Handles stock locking, promotion application, and customer upsert in a single at
 ```ts
 interface CheckoutPayload {
   customer: {
-    name:    string;
-    email:   string;
-    phone:   string;
+    name: string;
+    email: string;
+    phone: string;
     address: string;
   };
   items: Array<{
-    product_id:         number;
+    product_id: number;
     product_variant_id: number | null;
-    quantity:           number;
+    quantity: number;
   }>;
   shipping_method: string;
-  shipping_cost:   number;
-  coupon_code?:    string;    // optional
+  shipping_cost: number;
+  coupon_code?: string; // optional
 }
 ```
 
@@ -583,14 +597,14 @@ interface CheckoutPayload {
 
 ```ts
 interface CheckoutResponse {
-  message:           string;
-  order_id:          number;
-  subtotal:          number;
-  discount_amount:   number;
-  shipping_cost:     number;
-  total_amount:      number;
+  message: string;
+  order_id: number;
+  subtotal: number;
+  discount_amount: number;
+  shipping_cost: number;
+  total_amount: number;
   promotion_applied: {
-    code:        string | null;
+    code: string | null;
     description: string;
   } | null;
 }
@@ -599,6 +613,7 @@ interface CheckoutResponse {
 #### Error responses
 
 **`422`** — validation failure or stock/variant errors:
+
 ```json
 {
   "errors": {
@@ -612,18 +627,18 @@ interface CheckoutResponse {
 ```ts
 async function submitOrder(cart: Cart, couponResult: PromotionResult | null) {
   try {
-    const order = await apiFetch<CheckoutResponse>('checkout', {
-      method: 'POST',
+    const order = await apiFetch<CheckoutResponse>("checkout", {
+      method: "POST",
       body: JSON.stringify({
         customer: cart.customer,
-        items:    cart.items.map(i => ({
-          product_id:         i.product.id,
+        items: cart.items.map((i) => ({
+          product_id: i.product.id,
           product_variant_id: i.variant?.id ?? null,
-          quantity:           i.quantity,
+          quantity: i.quantity,
         })),
         shipping_method: cart.shippingMethod,
-        shipping_cost:   cart.shippingCost,
-        coupon_code:     couponResult?.code ?? undefined,
+        shipping_cost: cart.shippingCost,
+        coupon_code: couponResult?.code ?? undefined,
       }),
     });
 
@@ -644,34 +659,34 @@ async function submitOrder(cart: Cart, couponResult: PromotionResult | null) {
 
 ### Products
 
-| Value | Label |
-|-------|-------|
-| `newest` | Newest first *(default)* |
-| `oldest` | Oldest first |
-| `price_asc` | Price: Low to High |
-| `price_desc` | Price: High to Low |
-| `rating` | Top Rated |
-| `name_asc` | A → Z |
-| `name_desc` | Z → A |
+| Value        | Label                    |
+| ------------ | ------------------------ |
+| `newest`     | Newest first _(default)_ |
+| `oldest`     | Oldest first             |
+| `price_asc`  | Price: Low to High       |
+| `price_desc` | Price: High to Low       |
+| `rating`     | Top Rated                |
+| `name_asc`   | A → Z                    |
+| `name_desc`  | Z → A                    |
 
 ### Categories
 
-| Value | Label |
-|-------|-------|
-| `newest` | Newest first *(default)* |
-| `oldest` | Oldest first |
-| `alpha_asc` | A → Z |
-| `alpha_desc` | Z → A |
-| `most_products` | Most Products |
+| Value           | Label                    |
+| --------------- | ------------------------ |
+| `newest`        | Newest first _(default)_ |
+| `oldest`        | Oldest first             |
+| `alpha_asc`     | A → Z                    |
+| `alpha_desc`    | Z → A                    |
+| `most_products` | Most Products            |
 
 ### Posts / Blog
 
-| Value | Label |
-|-------|-------|
-| `newest` | Newest first *(default)* |
-| `oldest` | Oldest first |
-| `alpha_asc` | A → Z |
-| `alpha_desc` | Z → A |
+| Value        | Label                    |
+| ------------ | ------------------------ |
+| `newest`     | Newest first _(default)_ |
+| `oldest`     | Oldest first             |
+| `alpha_asc`  | A → Z                    |
+| `alpha_desc` | Z → A                    |
 
 ---
 
@@ -685,7 +700,7 @@ All paginated endpoints support a `page` query param (Laravel default).
 const page = Number(searchParams.page ?? 1);
 
 const data = await apiFetch<Paginated<Product>>(
-  `products?category_id=2&sort=price_asc&per_page=24&page=${page}`
+  `products?category_id=2&sort=price_asc&per_page=24&page=${page}`,
 );
 
 // data.meta.last_page    → total pages
@@ -725,7 +740,11 @@ For Next.js `<Image>`, add the API domain to `next.config.js`:
 module.exports = {
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'api.yourdomain.com', pathname: '/storage/**' },
+      {
+        protocol: "https",
+        hostname: "api.yourdomain.com",
+        pathname: "/storage/**",
+      },
     ],
   },
 };
@@ -735,19 +754,26 @@ module.exports = {
 
 ## 14. Error Handling
 
-| Status | Meaning |
-|--------|---------|
-| `404` | Resource not found (wrong slug/ID, or unpublished) |
-| `422` | Validation failed — check `errors` object |
-| `429` | Rate limited — back off and retry |
-| `500` | Server error — log and show a generic message |
+| Status | Meaning                                            |
+| ------ | -------------------------------------------------- |
+| `404`  | Resource not found (wrong slug/ID, or unpublished) |
+| `422`  | Validation failed — check `errors` object          |
+| `429`  | Rate limited — back off and retry                  |
+| `500`  | Server error — log and show a generic message      |
 
 ```ts
 // Shared error handler
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   const res = await fetch(`${API_BASE}/api/${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', 'X-Tenant': TENANT, ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Tenant": TENANT,
+      ...init?.headers,
+    },
   });
 
   if (res.status === 404) throw new NotFoundError();

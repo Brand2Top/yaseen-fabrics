@@ -59,6 +59,7 @@ export interface StorefrontVariantAttribute {
   attribute_value_id: number
   attribute: string
   value: string
+  color_hex: string | null
 }
 
 export interface StorefrontProductVariant {
@@ -74,11 +75,13 @@ export interface StorefrontProductVariant {
 export interface ProductAttributeValue {
   id: number
   value: string
+  color_hex: string | null
 }
 
 export interface ProductAttributeConfig {
   id: number
   name: string
+  is_color: boolean
   values: ProductAttributeValue[]
 }
 
