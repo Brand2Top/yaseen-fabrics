@@ -400,7 +400,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="sticky top-24 h-fit"
+            className="md:sticky md:top-24 h-fit"
           >
             <div className="space-y-4">
               <div className="relative bg-zinc-100 rounded-lg overflow-hidden aspect-square">
