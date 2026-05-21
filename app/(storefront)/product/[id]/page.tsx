@@ -219,6 +219,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     return variantMap.get(key) ?? null
   }, [selectedValues, variantMap, productAttributes.length, hasVariants])
 
+  // For image preview: find the first variant that matches all currently-selected
+  // attribute values, even when not all dimensions are chosen yet.
+  const imageVariant = useMemo(() => {
+    if (selectedVariant) return selectedVariant
+    if (!hasVariants || Object.keys(selectedValues).length === 0) return null
+    return (
+      product?.variants.find((v) =>
+        Object.values(selectedValues).every((valueId) =>
+          v.attributes.some((a) => a.attribute_value_id === valueId)
+        )
+      ) ?? null
+    )
+  }, [selectedValues, selectedVariant, product?.variants, hasVariants])
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -277,13 +291,39 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     ...(product.gallery ?? []),
   ]
 
+  // Show the image of whatever variant best matches the current selection,
+  // even before all attribute dimensions are picked.
+  const displayImage = imageVariant?.image ?? allImages[selectedImage] ?? null
+
   const allSelected = !hasVariants || productAttributes.every((a) => selectedValues[a.id] !== undefined)
-  const showingBasePrice = !selectedVariant || selectedVariant.price === null
-  const hasDiscount = showingBasePrice && product.discounted_price != null && product.discounted_price < product.price
-  const discountPercent = hasDiscount
-    ? Math.round(((product.price - product.discounted_price!) / product.price) * 100)
+
+  // Pricing: variant can have its own price + discounted_price; null falls back to base product pricing
+  let displayPrice: number
+  let originalPrice: number | null = null
+  let hasDiscount = false
+
+  if (selectedVariant && selectedVariant.price !== null) {
+    if (selectedVariant.discounted_price !== null) {
+      displayPrice = selectedVariant.discounted_price
+      originalPrice = selectedVariant.price
+      hasDiscount = true
+    } else {
+      displayPrice = selectedVariant.price
+    }
+  } else {
+    // no variant selected, or variant defers to base product pricing
+    if (product.discounted_price != null && product.discounted_price < product.price) {
+      displayPrice = product.discounted_price
+      originalPrice = product.price
+      hasDiscount = true
+    } else {
+      displayPrice = product.price
+    }
+  }
+
+  const discountPercent = hasDiscount && originalPrice
+    ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
     : 0
-  const displayPrice = selectedVariant?.price ?? (product.discounted_price ?? product.price)
   const effectiveStock = hasVariants ? (selectedVariant?.stock ?? 0) : product.stock
   const canAddToCart = hasVariants
     ? (allSelected && selectedVariant !== null && selectedVariant.is_active && selectedVariant.stock > 0)
@@ -321,7 +361,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       name: product.name,
       price: displayPrice,
       quantity,
-      image: product.featured_image?.url,
+      image: selectedVariant?.image?.url ?? product.featured_image?.url,
       variantLabel,
     })
     toast.success(`${product.name} added to cart!`, {
@@ -365,9 +405,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           >
             <div className="space-y-4">
               <div className="relative bg-zinc-100 rounded-lg overflow-hidden aspect-square">
-                {allImages[selectedImage] ? (
+                {displayImage ? (
                   <img
-                    src={allImages[selectedImage].url}
+                    src={displayImage.url}
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
@@ -454,7 +494,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       Rs {displayPrice.toLocaleString()}
                     </span>
                     <span className="font-serif text-lg text-zinc-400 line-through">
-                      Rs {product.price.toLocaleString()}
+                      Rs {originalPrice!.toLocaleString()}
                     </span>
                     <span className="text-xs bg-rose-100 text-rose-900 font-semibold px-2 py-0.5 rounded">
                       {discountPercent}% OFF

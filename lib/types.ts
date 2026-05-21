@@ -64,9 +64,11 @@ export interface StorefrontVariantAttribute {
 export interface StorefrontProductVariant {
   id: number
   price: number | null
+  discounted_price: number | null
   stock: number
   is_active: boolean
   attributes: StorefrontVariantAttribute[]
+  image: ApiImage | null
 }
 
 export interface ProductAttributeValue {

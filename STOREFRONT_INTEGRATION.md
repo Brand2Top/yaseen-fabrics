@@ -201,16 +201,27 @@ GET /api/products/7
 interface ProductAttributeConfig {
   id:     number;
   name:   string;   // e.g. "Color"
-  values: { id: number; value: string }[];   // e.g. [{id:1,value:"Red"},{id:2,value:"Blue"}]
+  values: {
+    id:        number;
+    value:     string;         // e.g. "Red"
+    color_hex: string | null;  // e.g. "#EF4444" — use to render color swatches in the selector UI
+  }[];
 }
 
 interface ProductVariant {
-  id:         number;
-  price:      number | null;  // null = use product base/discounted price
-  stock:      number;
-  is_active:  boolean;
+  id:               number;
+  price:            number | null;  // null = use product base/discounted price
+  discounted_price: number | null;  // null = no variant-level discount
+  stock:            number;
+  is_active:        boolean;
   // Same attributes as product_attributes but showing which value is selected for this variant
-  attributes: { attribute_value_id: number; attribute: string; value: string }[];
+  attributes: {
+    attribute_value_id: number;
+    attribute:          string;
+    value:              string;
+    color_hex:          string | null;  // e.g. "#3B82F6" — present when the value is a color
+  }[];
+  images: { id: number; url: string }[];  // per-variant images (may be empty)
 }
 
 interface ProductReview {
@@ -698,7 +709,7 @@ const data = await apiFetch<Paginated<Product>>(
 
 ## 13. Image URLs
 
-All `url` fields in `featured_image`, `gallery`, and `image` are absolute URLs ready to use directly in `<Image>` or `<img>` tags.
+All `url` fields in `featured_image`, `gallery`, `image`, and variant `image` are absolute URLs ready to use directly in `<Image>` or `<img>` tags.
 
 ```ts
 // Pattern: {API_BASE}/storage/{tenant_id}/media/{filename}
