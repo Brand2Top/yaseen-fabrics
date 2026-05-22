@@ -377,7 +377,7 @@ function ShopContent() {
               animate={{ opacity: 1, y: 0 }}
               className="flex items-center justify-between mb-8 pb-6 border-b border-zinc-200"
             >
-              <p className="text-sm text-zinc-600">
+              <span className="text-sm text-zinc-600">
                 {loading ? (
                   <Skeleton className="h-4 w-28 inline-block" />
                 ) : (
@@ -389,7 +389,7 @@ function ShopContent() {
                     results
                   </>
                 )}
-              </p>
+              </span>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-zinc-600 hidden sm:inline">Sort by:</span>
                 <Select value={sortBy} onValueChange={handleSortChange}>

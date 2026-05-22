@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
+import { Cormorant_Garamond, Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { CartProvider } from '@/context/cart-context'
@@ -11,6 +11,12 @@ import '../globals.css'
 const _geist = Geist({ subsets: ["latin"], variable: '--font-sans' });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 const _playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-serif' });
+const _cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ['300', '400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-display',
+});
 
 export const metadata: Metadata = {
   title: 'Yaseen Fabrics - Premium Unstitched Menswear',
@@ -46,7 +52,7 @@ export default function StorefrontLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${_playfair.variable} ${_geist.variable}`}>
+    <html lang="en" className={`${_playfair.variable} ${_geist.variable} ${_cormorant.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased bg-zinc-50">
         <CartProvider>
           <Header />

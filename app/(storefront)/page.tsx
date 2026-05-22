@@ -1,153 +1,601 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { Star, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { motion, useScroll, useTransform } from 'framer-motion'
+import { ArrowRight, Star } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCart } from '@/context/cart-context'
 import { toast } from 'sonner'
-import { getFeaturedProducts, getFeaturedCategories } from '@/lib/api'
-import type { ApiProduct, ApiCategory } from '@/lib/types'
+import { getFeaturedProducts, getFeaturedCategories, getPosts } from '@/lib/api'
+import type { ApiProduct, ApiCategory, ApiPost } from '@/lib/types'
 
-// Hero Section
-function HeroSection() {
+// ─── Shared ───────────────────────────────────────────────────────────────────
+
+function SectionHeading({
+  eyebrow,
+  title,
+  subtitle,
+  align = 'center',
+  light = false,
+}: {
+  eyebrow?: string
+  title: string
+  subtitle?: string
+  align?: 'center' | 'left'
+  light?: boolean
+}) {
   return (
-    <section className="relative w-full h-[600px] md:h-[700px] bg-gradient-to-br from-zinc-100 via-zinc-50 to-white overflow-hidden">
-      {/* Decorative Background */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-rose-900 rounded-full blur-3xl"></div>
-      </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.8 }}
+      className={`max-w-2xl ${align === 'center' ? 'mx-auto text-center' : ''}`}
+    >
+      {eyebrow && (
+        <div className={`flex items-center gap-3 mb-6 ${align === 'center' ? 'justify-center' : ''}`}>
+          <span className={`h-px w-10 ${light ? 'bg-white/40' : 'bg-rose-900/30'}`} />
+          <p className="text-[11px] uppercase tracking-luxury shimmer-text font-medium">{eyebrow}</p>
+          <span className={`h-px w-10 ${light ? 'bg-white/40' : 'bg-rose-900/30'}`} />
+        </div>
+      )}
+      <h2 className={`font-display text-4xl md:text-6xl leading-[1.05] ${light ? 'text-white' : 'text-zinc-900'}`}>
+        {title}
+      </h2>
+      {subtitle && (
+        <p className={`mt-6 text-base md:text-lg leading-relaxed ${light ? 'text-white/70' : 'text-zinc-500'}`}>
+          {subtitle}
+        </p>
+      )}
+    </motion.div>
+  )
+}
+
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+
+function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] })
+  const y = useTransform(scrollYProgress, [0, 1], [0, 200])
+  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0])
+
+  return (
+    <section ref={ref} className="relative h-screen min-h-[700px] w-full overflow-hidden grain">
+      {/* Background */}
+      <motion.div style={{ y }} className="absolute inset-0">
+        {heroImageUrl ? (
+          <>
+            <img
+              src={heroImageUrl}
+              alt="Yaseen Fabrics premium collection"
+              className="h-[120%] w-full object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/85 via-zinc-900/40 to-zinc-900/10" />
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-900/50 via-transparent to-transparent" />
+          </>
+        ) : (
+          <div className="h-full w-full bg-stone-100">
+            <div className="absolute top-0 right-0 w-[70vw] h-[70vw] rounded-full bg-rose-900/8 translate-x-1/3 -translate-y-1/4" />
+            <div className="absolute bottom-0 left-0 w-[50vw] h-[50vw] rounded-full bg-rose-900/5 -translate-x-1/3 translate-y-1/3" />
+          </div>
+        )}
+      </motion.div>
 
       {/* Content */}
-      <div className="relative h-full flex items-center justify-center px-4">
+      <motion.div
+        style={{ opacity }}
+        className="relative z-10 h-full flex flex-col justify-end pb-24 md:pb-32 px-6 lg:px-16 max-w-[1400px] mx-auto"
+      >
         <motion.div
-          className="text-center max-w-3xl"
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <motion.h1
-            className="font-serif text-4xl md:text-6xl lg:text-7xl font-bold text-zinc-900 mb-4 leading-tight text-balance"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            Elevate Your Style
-          </motion.h1>
-          <motion.p
-            className="text-lg md:text-xl text-zinc-600 mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-          >
-            Premium unstitched fabrics crafted for the discerning gentleman
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.8 }}
-          >
-            <Link href="/shop">
-              <Button className="bg-rose-900 hover:bg-rose-950 text-white px-10 py-6 rounded-sm transition-colors duration-300">
-                Explore Now
-              </Button>
+          <p className={`text-[11px] uppercase tracking-luxury mb-6 ${heroImageUrl ? 'text-white/80' : 'text-rose-900/80'}`}>
+            ✦ Yaseen Fabrics — Premium Unstitched Collection ✦
+          </p>
+          <h1 className={`font-display text-5xl sm:text-7xl md:text-8xl lg:text-[8.5rem] leading-[0.95] max-w-5xl ${heroImageUrl ? 'text-white' : 'text-zinc-900'}`}>
+            Woven with <em className="shimmer-text not-italic">Heritage</em>
+          </h1>
+          <p className={`mt-8 max-w-xl text-base md:text-lg leading-relaxed font-light ${heroImageUrl ? 'text-white/80' : 'text-zinc-600'}`}>
+            For those who understand that elegance is never loud — only certain.
+            Premium unstitched fabrics crafted by artisans devoted to their craft.
+          </p>
+          <div className="mt-10 flex flex-wrap gap-4">
+            <Link
+              href="/shop"
+              className="group inline-flex items-center gap-3 px-8 py-4 bg-rose-900 text-white text-[11px] uppercase tracking-luxury font-medium hover:bg-rose-950 hover:shadow-[0_0_40px_-8px_oklch(0.38_0.15_25/0.5)] transition-all duration-500"
+            >
+              Shop Now
+              <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
             </Link>
-          </motion.div>
+            <Link
+              href="/shop"
+              className={`inline-flex items-center gap-3 px-8 py-4 border text-[11px] uppercase tracking-luxury font-medium transition-all duration-500 ${
+                heroImageUrl
+                  ? 'border-white/40 text-white hover:bg-white/10'
+                  : 'border-rose-900/40 text-rose-900 hover:bg-rose-900/5'
+              }`}
+            >
+              Explore Collections
+            </Link>
+          </div>
         </motion.div>
-      </div>
+      </motion.div>
+
+      {/* Scroll indicator */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5, duration: 1 }}
+        className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 ${heroImageUrl ? 'text-white/50' : 'text-rose-900/50'}`}
+      >
+        <span className="text-[10px] uppercase tracking-luxury">Scroll</span>
+        <div className={`h-12 w-px bg-gradient-to-b animate-float-slow ${heroImageUrl ? 'from-white/50 to-transparent' : 'from-rose-900/50 to-transparent'}`} />
+      </motion.div>
     </section>
   )
 }
 
-// Collections Section
-function CollectionsSection() {
-  const [categories, setCategories] = useState<ApiCategory[]>([])
-  const [loading, setLoading] = useState(true)
+// ─── Featured Collections ─────────────────────────────────────────────────────
 
-  useEffect(() => {
-    getFeaturedCategories()
-      .then((res) => setCategories(res.data.slice(0, 3)))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
+function FeaturedCollections({ categories, loading }: { categories: ApiCategory[]; loading: boolean }) {
   return (
-    <section className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-zinc-50">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          className="text-center mb-20"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true, margin: '-100px' }}
-        >
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-zinc-900 mb-4 text-balance">
-            Explore Collections
-          </h2>
-          <p className="text-lg text-zinc-600 max-w-2xl mx-auto">
-            Discover our curated selection of premium unstitched fabrics
-          </p>
-        </motion.div>
+    <section className="py-28 md:py-40 px-6 lg:px-12 max-w-[1400px] mx-auto">
+      <SectionHeading
+        eyebrow="The Collections"
+        title="Worlds Worth Wearing"
+        subtitle="Each collection is its own atmosphere — a fabric, a season, a state of being."
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {loading
-            ? [...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-[400px] rounded-lg" />
-              ))
-            : categories.map((cat, index) => (
-                <motion.div
-                  key={cat.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  viewport={{ once: true, margin: '-100px' }}
-                  className="group relative h-[400px] rounded-lg overflow-hidden cursor-pointer"
+      <div className="mt-20 grid gap-6 md:grid-cols-3">
+        {loading
+          ? [...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="aspect-[3/4] w-full rounded-none" />
+            ))
+          : categories.map((cat, i) => (
+              <motion.div
+                key={cat.id}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: i * 0.15 }}
+              >
+                <Link
+                  href={`/shop?category=${cat.slug}`}
+                  className="group relative block aspect-[3/4] overflow-hidden bg-zinc-100"
                 >
                   {cat.image?.url ? (
                     <img
                       src={cat.image.url}
                       alt={cat.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-[1.6s] ease-out group-hover:scale-110"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900" />
+                    <div className="h-full w-full bg-gradient-to-br from-zinc-200 to-zinc-300" />
                   )}
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-6">
-                    <h3 className="font-serif text-3xl font-bold text-white mb-2">{cat.name}</h3>
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-zinc-900/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-rose-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700 mix-blend-soft-light" />
+                  <div className="absolute inset-x-0 bottom-0 p-8">
+                    <p className="text-[10px] uppercase tracking-luxury text-rose-300 mb-3">
+                      Yaseen Fabrics
+                    </p>
+                    <h3 className="font-display text-3xl md:text-4xl text-white mb-2">{cat.name}</h3>
                     {cat.description && (
-                      <p className="text-white/90 mb-4 line-clamp-2">{cat.description}</p>
+                      <p className="text-sm text-white/70 italic font-light mb-5 line-clamp-2">{cat.description}</p>
                     )}
-                    {cat.products_count > 0 && (
-                      <p className="text-white/70 text-sm mb-3">{cat.products_count} products</p>
-                    )}
-                    <Link href={`/shop?category=${cat.slug}`}>
-                      <button className="inline-flex items-center gap-2 text-white hover:gap-3 transition-all duration-300">
-                        Explore <ChevronRight size={18} />
-                      </button>
-                    </Link>
+                    <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-luxury text-rose-300 luxury-underline">
+                      View Collection <ArrowRight className="h-3 w-3" />
+                    </span>
                   </div>
+                </Link>
+              </motion.div>
+            ))}
+      </div>
+    </section>
+  )
+}
+
+// ─── Products Section ─────────────────────────────────────────────────────────
+
+function ProductsSection({
+  products,
+  loading,
+  onQuickAdd,
+}: {
+  products: ApiProduct[]
+  loading: boolean
+  onQuickAdd: (p: ApiProduct) => void
+}) {
+  return (
+    <section className="py-28 md:py-40 px-6 lg:px-12 max-w-[1400px] mx-auto">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-16">
+        <div>
+          <p className="text-[11px] uppercase tracking-luxury shimmer-text mb-4">Atelier Selection</p>
+          <h2 className="font-display text-4xl md:text-6xl text-zinc-900">Pieces of the Season</h2>
+        </div>
+        <Link
+          href="/shop"
+          className="text-[11px] uppercase tracking-luxury text-rose-900 luxury-underline self-start"
+        >
+          View All Pieces →
+        </Link>
+      </div>
+
+      <div className="grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
+        {loading
+          ? [...Array(4)].map((_, i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="aspect-[3/4] w-full rounded-none" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))
+          : products.map((p, i) => {
+              const price = p.discounted_price ?? p.price
+              const hasDiscount = p.discounted_price != null && p.discounted_price < p.price
+              return (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: i * 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+                  className="group"
+                >
+                  <Link href={`/product/${p.slug}`}>
+                    <div className="relative aspect-[3/4] overflow-hidden bg-zinc-100 mb-5">
+                      {p.featured_image?.url ? (
+                        <img
+                          src={p.featured_image.url}
+                          alt={p.name}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-[1.4s] ease-out group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-zinc-200" />
+                      )}
+                      {/* Bottom overlay + CTA on hover */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      <div className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-500">
+                        <button
+                          onClick={(e) => { e.preventDefault(); onQuickAdd(p) }}
+                          className="w-full py-3 bg-rose-900 text-white text-[11px] uppercase tracking-luxury hover:bg-rose-950 transition-colors"
+                        >
+                          Add to Bag
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[10px] uppercase tracking-luxury text-rose-900/70 mb-1">{p.category?.name}</p>
+                    <h3 className="font-display text-xl text-zinc-900 mb-1 group-hover:text-rose-900 transition-colors duration-300 line-clamp-1">
+                      {p.name}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-zinc-700">Rs {price.toLocaleString()}</span>
+                      {hasDiscount && (
+                        <span className="text-xs text-zinc-400 line-through">Rs {p.price.toLocaleString()}</span>
+                      )}
+                    </div>
+                    {(p.average_rating ?? 0) > 0 && (
+                      <div className="flex items-center gap-1 mt-1.5">
+                        {[...Array(5)].map((_, j) => (
+                          <Star key={j} className={`w-3 h-3 ${j < Math.floor(p.average_rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'}`} />
+                        ))}
+                        <span className="text-xs text-zinc-400 ml-0.5">{(p.average_rating ?? 0).toFixed(1)}</span>
+                      </div>
+                    )}
+                  </Link>
                 </motion.div>
-              ))}
+              )
+            })}
+      </div>
+    </section>
+  )
+}
+
+// ─── Why Yaseen Fabrics ───────────────────────────────────────────────────────
+
+function WhyYaseenFabrics({ imageUrl }: { imageUrl?: string }) {
+  const features = [
+    {
+      n: '01',
+      t: 'Fabric of Heritage',
+      d: 'Sourced from master weavers — silks, cottons, and premium blends that carry their own quiet age and character.',
+    },
+    {
+      n: '02',
+      t: 'Crafted with Precision',
+      d: 'Every metre passes through quality control ensuring the weight, weave, and finish meet the standard of a discerning wardrobe.',
+    },
+    {
+      n: '03',
+      t: 'Restraint as Elegance',
+      d: 'We curate what does not need to be loud. Texture, drape, and colour do the speaking.',
+    },
+  ]
+
+  return (
+    <section className="relative py-28 md:py-40 px-6 lg:px-12 grain bg-stone-50">
+      <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-16 items-center">
+        <motion.div
+          initial={{ opacity: 0, x: -40 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1 }}
+          className="relative aspect-[4/5] overflow-hidden"
+        >
+          {imageUrl ? (
+            <img src={imageUrl} alt="Yaseen Fabrics craftsmanship" loading="lazy" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-zinc-200 to-zinc-300" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-tr from-stone-50/40 via-transparent to-transparent" />
+          <div className="absolute -bottom-px -right-px h-32 w-32 border-r-2 border-b-2 border-rose-900/40" />
+          <div className="absolute -top-px -left-px h-32 w-32 border-l-2 border-t-2 border-rose-900/40" />
+        </motion.div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-luxury shimmer-text mb-6">Why Yaseen Fabrics</p>
+          <h2 className="font-display text-4xl md:text-6xl text-zinc-900 leading-[1.05] mb-8">
+            A house built on <em className="text-rose-900 not-italic">patience</em>, fabric, and craft.
+          </h2>
+          <p className="text-zinc-500 leading-relaxed mb-12 max-w-lg">
+            Yaseen Fabrics was founded with one belief — that true luxury is patient.
+            It listens to the fabric, follows the hand, and never raises its voice.
+          </p>
+          <div className="space-y-8">
+            {features.map((f, i) => (
+              <motion.div
+                key={f.n}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: i * 0.1 }}
+                className="flex gap-6 pb-8 border-b border-rose-900/10 last:border-0"
+              >
+                <span className="font-display text-3xl text-rose-900/60 shrink-0">{f.n}</span>
+                <div>
+                  <h3 className="font-display text-2xl text-zinc-900 mb-2">{f.t}</h3>
+                  <p className="text-sm text-zinc-500 leading-relaxed">{f.d}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
-// Best Sellers Section
-function BestSellersSection() {
+// ─── Lookbook ─────────────────────────────────────────────────────────────────
+
+function Lookbook({ images }: { images: string[] }) {
+  const [img1, img2, img3] = images
+
+  if (!img1 && !img2 && !img3) return null
+
+  return (
+    <section className="py-28 md:py-40 px-6 lg:px-12 max-w-[1400px] mx-auto">
+      <SectionHeading
+        eyebrow="The Lookbook"
+        title="Current Season"
+        subtitle="An editorial study of the season — fabric meeting form."
+      />
+      <div className="mt-20 grid grid-cols-12 gap-3 md:gap-5">
+        {img1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="col-span-12 md:col-span-7 aspect-[4/5] overflow-hidden group bg-zinc-100"
+          >
+            <img src={img1} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.6s] group-hover:scale-105" />
+          </motion.div>
+        )}
+        {img2 && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="col-span-6 md:col-span-5 aspect-square overflow-hidden group bg-zinc-100"
+          >
+            <img src={img2} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.6s] group-hover:scale-105" />
+          </motion.div>
+        )}
+        {img3 && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="col-span-6 md:col-span-5 aspect-[4/5] overflow-hidden group bg-zinc-100"
+          >
+            <img src={img3} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.6s] group-hover:scale-105" />
+          </motion.div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ─── Articles ─────────────────────────────────────────────────────────────────
+
+function Articles({ posts, loading }: { posts: ApiPost[]; loading: boolean }) {
+  return (
+    <section className="py-28 md:py-40 px-6 lg:px-12 max-w-[1400px] mx-auto">
+      <SectionHeading eyebrow="Journal" title="Style & Fabric Insights" />
+
+      <div className="mt-20 grid gap-8 md:grid-cols-3">
+        {loading
+          ? [...Array(3)].map((_, i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ))
+          : posts.map((post, i) => (
+              <motion.article
+                key={post.id}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, delay: i * 0.1 }}
+                className="group cursor-pointer"
+              >
+                <Link href={`/blog/${post.slug}`}>
+                  <div className="aspect-[4/3] overflow-hidden mb-6 bg-zinc-100">
+                    {post.featured_image?.url ? (
+                      <img
+                        src={post.featured_image.url}
+                        alt={post.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-[1.4s] group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-zinc-100 to-zinc-200" />
+                    )}
+                  </div>
+                  <p className="text-[10px] uppercase tracking-luxury text-rose-900 mb-3">
+                    {post.reading_time ? `${post.reading_time} min read` : 'Journal'}
+                  </p>
+                  <h3 className="font-display text-2xl text-zinc-900 mb-3 group-hover:text-rose-900 transition-colors duration-300">
+                    {post.title}
+                  </h3>
+                  {post.excerpt && (
+                    <p className="text-sm text-zinc-500 leading-relaxed mb-5 line-clamp-2">{post.excerpt}</p>
+                  )}
+                  <span className="text-[11px] uppercase tracking-luxury text-rose-900 luxury-underline">Read More →</span>
+                </Link>
+              </motion.article>
+            ))}
+      </div>
+    </section>
+  )
+}
+
+// ─── Testimonials ─────────────────────────────────────────────────────────────
+
+function Testimonials() {
+  const items = [
+    {
+      name: 'Ahmed Hassan',
+      role: 'Karachi',
+      quote: 'I have not worn another house since the day my Yaseen Fabrics suit was stitched. It is the only thing in my closet that feels truly alive.',
+    },
+    {
+      name: 'Muhammad Ali',
+      role: 'Lahore',
+      quote: 'The hand of the fabric, the weight of the cotton — it is craftsmanship you happen to dress in. Nothing else comes close.',
+    },
+    {
+      name: 'Hassan Khan',
+      role: 'Dubai',
+      quote: 'There is a quiet presence around a Yaseen piece. People notice, but gently. That is the highest compliment a house can earn.',
+    },
+  ]
+
+  return (
+    <section className="py-28 md:py-40 px-6 lg:px-12 bg-stone-50 grain">
+      <div className="max-w-[1100px] mx-auto">
+        <SectionHeading eyebrow="In Their Words" title="Spoken by Our Patrons" />
+        <div className="mt-20 grid gap-8 md:grid-cols-3">
+          {items.map((t, i) => (
+            <motion.div
+              key={t.name}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: i * 0.1 }}
+              className="border border-rose-900/15 p-10 hover:border-rose-900/35 transition-colors duration-500 bg-white/70 backdrop-blur-sm"
+            >
+              <div className="flex gap-1 text-amber-500 mb-6">
+                {Array.from({ length: 5 }).map((_, j) => (
+                  <Star key={j} className="h-3 w-3 fill-current" />
+                ))}
+              </div>
+              <p className="font-display italic text-lg leading-relaxed text-zinc-700 mb-8">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div>
+                <p className="text-sm text-rose-900 font-medium">{t.name}</p>
+                <p className="text-[11px] uppercase tracking-luxury text-zinc-400 mt-1">{t.role}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── CTA Banner ───────────────────────────────────────────────────────────────
+
+function CtaBanner() {
+  return (
+    <section className="relative py-32 md:py-44 px-6 lg:px-12 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(135deg, oklch(0.38 0.15 25) 0%, oklch(0.28 0.10 25) 60%, oklch(0.22 0.08 25) 100%)',
+        }}
+      />
+      <div
+        className="absolute inset-0 opacity-30"
+        style={{
+          background: 'radial-gradient(ellipse at center, oklch(0.56 0.22 25 / 0.4), transparent 60%)',
+        }}
+      />
+      <div className="absolute inset-0 grain" />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1 }}
+        className="relative max-w-3xl mx-auto text-center"
+      >
+        <p className="text-[11px] uppercase tracking-luxury shimmer-text mb-6">Private Invitation</p>
+        <h2 className="font-display text-5xl md:text-7xl leading-[1.05] text-white">
+          Experience <em className="shimmer-text not-italic">Luxury</em>
+          <br />Like Never Before
+        </h2>
+        <p className="mt-8 text-lg text-white/70 max-w-xl mx-auto">
+          Step into our collection. Discover premium unstitched fabrics reserved for those who know.
+        </p>
+        <Link
+          href="/shop"
+          className="group mt-12 inline-flex items-center gap-3 px-12 py-5 bg-white text-rose-900 text-[11px] uppercase tracking-luxury font-medium hover:bg-stone-100 hover:shadow-[0_0_60px_-10px_white/30] transition-all duration-500"
+        >
+          Shop Now
+          <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </motion.div>
+    </section>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function Home() {
   const { addItem } = useCart()
+  const [categories, setCategories] = useState<ApiCategory[]>([])
   const [products, setProducts] = useState<ApiProduct[]>([])
+  const [posts, setPosts] = useState<ApiPost[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getFeaturedProducts()
-      .then((res) => setProducts(res.data.slice(0, 4)))
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.allSettled([
+      getFeaturedCategories().then((r) => setCategories(r.data.slice(0, 3))),
+      getFeaturedProducts().then((r) => setProducts(r.data.slice(0, 8))),
+      getPosts({ per_page: 3, is_published: 1 }).then((r) => setPosts(r.data)),
+    ]).finally(() => setLoading(false))
   }, [])
 
   const handleQuickAdd = (product: ApiProduct) => {
@@ -166,327 +614,25 @@ function BestSellersSection() {
     })
   }
 
-  return (
-    <section id="best-sellers" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-white">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          className="text-center mb-20"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true, margin: '-100px' }}
-        >
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-zinc-900 mb-4 text-balance">
-            Best Sellers
-          </h2>
-          <p className="text-lg text-zinc-600 max-w-2xl mx-auto">
-            Curated favorites from our most loyal customers
-          </p>
-        </motion.div>
+  // Collect images for hero and lookbook
+  const heroImageUrl = products[0]?.featured_image?.url ?? categories[0]?.image?.url
+  const lookbookImages = [
+    products[1]?.featured_image?.url,
+    products[2]?.featured_image?.url,
+    products[3]?.featured_image?.url,
+  ].filter((u): u is string => Boolean(u))
+  const whyImageUrl = products[4]?.featured_image?.url ?? categories[1]?.image?.url
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {loading
-            ? [...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
-                  <Skeleton className="h-64 w-full" />
-                  <div className="p-6 space-y-3">
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-5 w-20" />
-                    <div className="flex gap-3">
-                      <Skeleton className="h-9 flex-1" />
-                      <Skeleton className="h-9 flex-1" />
-                    </div>
-                  </div>
-                </div>
-              ))
-            : products.map((product, index) => {
-                const price = product.discounted_price ?? product.price
-                const hasDiscount =
-                  product.discounted_price != null && product.discounted_price < product.price
-
-                return (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    viewport={{ once: true, margin: '-100px' }}
-                    className="group bg-white border border-zinc-200 rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300"
-                  >
-                    <div className="relative h-64 bg-zinc-100 overflow-hidden">
-                      {product.is_featured && (
-                        <div className="absolute top-4 left-4 z-10">
-                          <span className="bg-rose-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                            Featured
-                          </span>
-                        </div>
-                      )}
-                      {product.featured_image?.url ? (
-                        <img
-                          src={product.featured_image.url}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-zinc-200" />
-                      )}
-                    </div>
-
-                    <div className="p-6">
-                      <Link href={`/product/${product.slug}`}>
-                        <h3 className="font-medium text-zinc-900 mb-2 hover:text-rose-900 transition-colors duration-300 line-clamp-2 cursor-pointer">
-                          {product.name}
-                        </h3>
-                      </Link>
-
-                      {(product.average_rating ?? 0) > 0 && (
-                        <div className="flex items-center gap-1 mb-3">
-                          <div className="flex gap-0.5">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                size={14}
-                                className={`${
-                                  i < Math.floor(product.average_rating ?? 0)
-                                    ? 'fill-amber-400 text-amber-400'
-                                    : 'text-zinc-300'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-xs text-zinc-600 ml-1">
-                            {(product.average_rating ?? 0).toFixed(1)} ({product.reviews_count})
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2 mb-4">
-                        <p className="font-serif text-lg font-bold text-zinc-900">
-                          Rs {price.toLocaleString()}
-                        </p>
-                        {hasDiscount && (
-                          <p className="font-serif text-sm text-zinc-400 line-through">
-                            Rs {product.price.toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-3">
-                        <Link href={`/product/${product.slug}`} className="flex-1">
-                          <Button
-                            variant="outline"
-                            className="w-full text-zinc-900 border-zinc-300 hover:border-zinc-900 hover:bg-zinc-50 transition-all duration-300"
-                          >
-                            View
-                          </Button>
-                        </Link>
-                        <button
-                          onClick={() => handleQuickAdd(product)}
-                          className="flex-1 bg-rose-900 text-white hover:bg-rose-950 transition-all duration-300 font-medium py-2 rounded"
-                        >
-                          Quick Add
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )
-              })}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// Reviews Section
-function ReviewsSection() {
-  const reviews = [
-    {
-      id: 1,
-      author: 'Ahmed Hassan',
-      rating: 5,
-      text: 'Absolutely premium quality. The Egyptian Cotton exceeded my expectations in every way.',
-      initials: 'AH'
-    },
-    {
-      id: 2,
-      author: 'Muhammad Ali',
-      rating: 5,
-      text: 'Best fabric I&apos;ve ever purchased. Delivery was quick and packaging was immaculate.',
-      initials: 'MA'
-    },
-    {
-      id: 3,
-      author: 'Hassan Khan',
-      rating: 5,
-      text: 'Customer service is exceptional. The team helped me choose the perfect fabric.',
-      initials: 'HK'
-    },
-  ]
-
-  return (
-    <section className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-zinc-50">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          className="text-center mb-20"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true, margin: '-100px' }}
-        >
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-zinc-900 mb-4 text-balance">
-            Trusted by Thousands
-          </h2>
-          <p className="text-lg text-zinc-600 max-w-2xl mx-auto">
-            Real reviews from satisfied customers
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {reviews.map((review, index) => (
-            <motion.div
-              key={review.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              className="bg-white p-8 rounded-lg border border-zinc-200 hover:shadow-md transition-all duration-300"
-            >
-              <div className="flex gap-1 mb-4">
-                {[...Array(review.rating)].map((_, i) => (
-                  <Star key={i} size={16} className="fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <p className="text-zinc-700 mb-6 leading-relaxed">{review.text}</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-rose-900 text-white flex items-center justify-center font-semibold text-sm">
-                  {review.initials}
-                </div>
-                <div>
-                  <p className="font-semibold text-zinc-900 text-sm">{review.author}</p>
-                  <p className="text-zinc-600 text-xs">Verified Customer</p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// Style Guides Section
-function StyleGuidesSection() {
-  const guides = [
-    {
-      id: 1,
-      title: 'How to Choose Your Length',
-      excerpt: 'Learn the ideal fabric length for different styles and body types.',
-      image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=300&fit=crop'
-    },
-    {
-      id: 2,
-      title: 'Fabric Care 101',
-      excerpt: 'Master the art of caring for your premium fabrics for longevity.',
-      image: 'https://images.unsplash.com/photo-1582716743212-827c9e760c23?w=300&h=300&fit=crop'
-    },
-    {
-      id: 3,
-      title: 'Color Matching Guide',
-      excerpt: 'Discover color palettes that complement your skin tone perfectly.',
-      image: 'https://images.unsplash.com/photo-1595526514017-a82e7f773908?w=300&h=300&fit=crop'
-    },
-  ]
-
-  return (
-    <section className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-white" id="guides">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          className="text-center mb-20"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true, margin: '-100px' }}
-        >
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-zinc-900 mb-4 text-balance">
-            Style Guides
-          </h2>
-          <p className="text-lg text-zinc-600 max-w-2xl mx-auto">
-            Expert tips to help you make the most of your purchase
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {guides.map((guide, index) => (
-            <motion.a
-              key={guide.id}
-              href="#"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              className="group"
-            >
-              <div className="mb-4 overflow-hidden rounded-lg h-48 bg-zinc-100 border border-zinc-200">
-                <img
-                  src={guide.image}
-                  alt={guide.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <h3 className="font-semibold text-zinc-900 mb-2 group-hover:text-rose-900 transition-colors duration-300 text-balance">
-                {guide.title}
-              </h3>
-              <p className="text-sm text-zinc-600 mb-4">{guide.excerpt}</p>
-              <div className="flex items-center gap-1 text-zinc-900 group-hover:gap-2 transition-all duration-300">
-                <span className="text-sm font-medium">Read More</span>
-                <ChevronRight size={16} />
-              </div>
-            </motion.a>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// Final CTA Section
-function FinalCTASection() {
-  return (
-    <section className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-rose-900">
-      <div className="max-w-4xl mx-auto text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-        >
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-white mb-4 text-balance">
-            Ready to Elevate Your Wardrobe?
-          </h2>
-          <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Browse our complete collection of premium unstitched fabrics
-          </p>
-          <Link href="/shop">
-            <Button className="bg-white text-rose-900 hover:bg-zinc-100 px-10 py-3 text-lg font-medium transition-all duration-300">
-              Shop Now
-            </Button>
-          </Link>
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-export default function Home() {
   return (
     <main className="w-full">
-      <HeroSection />
-      <CollectionsSection />
-      <BestSellersSection />
-      <ReviewsSection />
-      <StyleGuidesSection />
-      <FinalCTASection />
+      <Hero heroImageUrl={heroImageUrl} />
+      <FeaturedCollections categories={categories} loading={loading} />
+      <ProductsSection products={products.slice(0, 4)} loading={loading} onQuickAdd={handleQuickAdd} />
+      <WhyYaseenFabrics imageUrl={whyImageUrl} />
+      <Lookbook images={lookbookImages} />
+      <Articles posts={posts} loading={loading} />
+      <Testimonials />
+      <CtaBanner />
     </main>
   )
 }
