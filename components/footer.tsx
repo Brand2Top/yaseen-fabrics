@@ -83,11 +83,11 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-zinc-200 pt-8 flex flex-col items-center gap-2">
-          <p className="text-center text-xs text-zinc-500">
-            © 2025 Yaseen Fabrics. All rights reserved. | Privacy Policy | Terms of Service
+        <div className="border-t border-zinc-200 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
+          <p className="text-xs text-zinc-500">
+            © 2026 Yaseen Fabrics. All rights reserved. | Privacy Policy | Terms of Service
           </p>
-          <p className="text-center text-xs text-zinc-500">
+          <p className="text-xs text-zinc-500">
             Developed by{' '}
             <a 
               href="https://brand2top.com" 
