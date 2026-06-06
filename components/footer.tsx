@@ -85,7 +85,7 @@ export function Footer() {
 
         <div className="border-t border-zinc-200 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
           <p className="text-xs text-zinc-500">
-            © 2026 Yaseen Fabrics. All rights reserved. | Privacy Policy | Terms of Service
+            © 2026 Yaseen Fabrics
           </p>
           <p className="text-xs text-zinc-500">
             Developed by{' '}
