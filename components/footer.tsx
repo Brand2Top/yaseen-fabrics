@@ -96,8 +96,7 @@ export function Footer() {
               className="font-medium hover:text-zinc-900 underline transition"
             >
               Brand2Top
-            </a>{' '}
-            Branding
+            </a>
           </p>
         </div>
       </div>
