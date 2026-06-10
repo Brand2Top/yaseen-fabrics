@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { motion, useScroll, useTransform } from 'framer-motion'
-import { ArrowRight, Star } from 'lucide-react'
+import { ArrowRight, Star, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCart } from '@/context/cart-context'
 import { toast } from 'sonner'
-import { getFeaturedProducts, getFeaturedCategories, getPosts } from '@/lib/api'
+import { getFeaturedProducts, getFeaturedCategories, getPosts, getCategories } from '@/lib/api'
 import type { ApiProduct, ApiCategory, ApiPost } from '@/lib/types'
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
@@ -134,6 +134,115 @@ function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
         <span className="text-[10px] uppercase tracking-luxury">Scroll</span>
         <div className={`h-12 w-px bg-gradient-to-b animate-float-slow ${heroImageUrl ? 'from-white/50 to-transparent' : 'from-rose-900/50 to-transparent'}`} />
       </motion.div>
+    </section>
+  )
+}
+
+// ─── Category Ring Slider ─────────────────────────────────────────────────────
+
+function CategoryRingSlider({ categories, loading }: { categories: ApiCategory[]; loading: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [showControls, setShowControls] = useState(false)
+
+  // Check if we need to show scroll controls based on content width
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (scrollRef.current) {
+        setShowControls(scrollRef.current.scrollWidth > scrollRef.current.clientWidth)
+      }
+    }
+    checkOverflow()
+    window.addEventListener('resize', checkOverflow)
+    return () => window.removeEventListener('resize', checkOverflow)
+  }, [categories, loading])
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = scrollRef.current.clientWidth * 0.8
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      })
+    }
+  }
+
+  return (
+    <section className="py-20 md:py-28 bg-[#F4F8FB]">
+      <div className="px-6 lg:px-12 max-w-[1400px] mx-auto">
+        {/* Header matching screenshot */}
+        <div className="mb-12">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#204E8A] mb-2">Browse</p>
+          <h2 className="font-display text-4xl md:text-5xl text-[#0B1E36] font-semibold tracking-tight">
+            Shop By Categories
+          </h2>
+        </div>
+
+        {/* Slider Container */}
+        <div className="relative group">
+          {/* Left Arrow */}
+          {showControls && (
+            <button
+              onClick={() => scroll('left')}
+              className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100 text-[#0B1E36] opacity-0 group-hover:opacity-100 transition-all hover:scale-105"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+          )}
+
+          {/* Scroll Area (hides native scrollbar using arbitrary tailwind variants) */}
+          <div
+            ref={scrollRef}
+            className="flex gap-6 md:gap-10 overflow-x-auto snap-x snap-mandatory pb-6 pt-2 scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {loading
+              ? [...Array(5)].map((_, i) => (
+                  <div key={i} className="flex-shrink-0 flex flex-col items-center gap-6 min-w-[200px]">
+                    <Skeleton className="w-[220px] h-[220px] rounded-full" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                ))
+              : categories.map((cat, i) => (
+                  <Link
+                    key={cat.id}
+                    href={`/shop?category=${cat.slug}`}
+                    className="group flex-shrink-0 flex flex-col items-center gap-5 min-w-[200px] snap-start"
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: i * 0.1 }}
+                      className="w-[200px] h-[200px] md:w-[240px] md:h-[240px] rounded-full bg-white flex items-center justify-center p-6 shadow-sm border border-slate-50 transition-transform duration-500 ease-out group-hover:scale-105 group-hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] overflow-hidden"
+                    >
+                      {cat.image?.url ? (
+                        <img
+                          src={cat.image.url}
+                          alt={cat.name}
+                          loading="lazy"
+                          className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-slate-100 rounded-full" />
+                      )}
+                    </motion.div>
+                    <span className="text-[13px] font-semibold text-[#0B1E36] uppercase tracking-wider text-center transition-colors group-hover:text-[#204E8A]">
+                      {cat.name}
+                    </span>
+                  </Link>
+                ))}
+          </div>
+
+          {/* Right Arrow */}
+          {showControls && (
+            <button
+              onClick={() => scroll('right')}
+              className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-slate-100 text-[#0B1E36] opacity-0 group-hover:opacity-100 transition-all hover:scale-105"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          )}
+        </div>
+      </div>
     </section>
   )
 }
@@ -585,14 +694,16 @@ function CtaBanner() {
 
 export default function Home() {
   const { addItem } = useCart()
-  const [categories, setCategories] = useState<ApiCategory[]>([])
+  const [featuredCategories, setFeaturedCategories] = useState<ApiCategory[]>([])
+  const [allCategories, setAllCategories] = useState<ApiCategory[]>([])
   const [products, setProducts] = useState<ApiProduct[]>([])
   const [posts, setPosts] = useState<ApiPost[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.allSettled([
-      getFeaturedCategories().then((r) => setCategories(r.data.slice(0, 3))),
+      getFeaturedCategories().then((r) => setFeaturedCategories(r.data.slice(0, 3))),
+      getCategories({ per_page: 20 }).then((r) => setAllCategories(r.data)),
       getFeaturedProducts().then((r) => setProducts(r.data.slice(0, 8))),
       getPosts({ per_page: 3, is_published: 1 }).then((r) => setPosts(r.data)),
     ]).finally(() => setLoading(false))
@@ -615,18 +726,20 @@ export default function Home() {
   }
 
   // Collect images for hero and lookbook
-  const heroImageUrl = products[0]?.featured_image?.url ?? categories[0]?.image?.url
+  const heroImageUrl = products[0]?.featured_image?.url ?? featuredCategories[0]?.image?.url
   const lookbookImages = [
     products[1]?.featured_image?.url,
     products[2]?.featured_image?.url,
     products[3]?.featured_image?.url,
   ].filter((u): u is string => Boolean(u))
-  const whyImageUrl = products[4]?.featured_image?.url ?? categories[1]?.image?.url
+  const whyImageUrl = products[4]?.featured_image?.url ?? featuredCategories[1]?.image?.url
 
   return (
     <main className="w-full">
       <Hero heroImageUrl={heroImageUrl} />
-      <FeaturedCollections categories={categories} loading={loading} />
+      {/* Newly Added Ring Slider Component */}
+      <CategoryRingSlider categories={allCategories} loading={loading} />
+      <FeaturedCollections categories={featuredCategories} loading={loading} />
       <ProductsSection products={products.slice(0, 4)} loading={loading} onQuickAdd={handleQuickAdd} />
       <WhyYaseenFabrics imageUrl={whyImageUrl} />
       <Lookbook images={lookbookImages} />
