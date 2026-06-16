@@ -205,27 +205,20 @@ function CategoryRingSlider({ categories, loading }: { categories: ApiCategory[]
                   <Link
                     key={cat.id}
                     href={`/shop?category=${cat.slug}`}
-                    className="group flex-shrink-0 flex flex-col items-center gap-5 min-w-[200px] snap-start"
+                    className="group/ring flex-shrink-0 flex flex-col items-center gap-5 min-w-[200px] snap-start"  // renamed to group/ring
                   >
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.6, delay: i * 0.1 }}
-                      className="w-[200px] h-[200px] md:w-[240px] md:h-[240px] rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-50 transition-transform duration-500 ease-out group-hover:scale-105 group-hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] overflow-hidden"
+                      ...
+                      className="... transition-transform duration-500 ease-out group-hover/ring:scale-105 group-hover/ring:shadow-[0_10px_40px_rgba(0,0,0,0.06)] overflow-hidden"  // scoped to group/ring
                     >
                       {cat.image?.url ? (
                         <img
-                          src={cat.image.url}
-                          alt={cat.name}
-                          loading="lazy"
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          ...
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover/ring:scale-110"  // scoped to group/ring
                         />
-                      ) : (
-                        <div className="h-full w-full bg-slate-100 rounded-full" />
-                      )}
+                      ) : ...}
                     </motion.div>
-                    <span className="text-[13px] font-semibold text-[#0B1E36] uppercase tracking-wider text-center transition-colors group-hover:text-[#204E8A]">
+                    <span className="... transition-colors group-hover/ring:text-[#204E8A]">  // scoped to group/ring
                       {cat.name}
                     </span>
                   </Link>
