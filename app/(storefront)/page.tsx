@@ -742,8 +742,8 @@ export default function Home() {
       <FeaturedCollections categories={featuredCategories} loading={loading} />
       <ProductsSection products={products.slice(0, 4)} loading={loading} onQuickAdd={handleQuickAdd} />
       <WhyYaseenFabrics imageUrl={whyImageUrl} />
-      <!-- <Lookbook images={lookbookImages} /> -->
-      <!-- <Articles posts={posts} loading={loading} /> -->
+      {/* <Lookbook images={lookbookImages} /> */}
+      {/* <Articles posts={posts} loading={loading} /> */}
       <Testimonials />
       <CtaBanner />
     </main>
