@@ -507,7 +507,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
 
               {product.description && (
-                <p className="text-zinc-600 leading-relaxed">{product.description}</p>
+                <div 
+                  className="text-zinc-600 leading-relaxed [&>p]:mb-4 last:[&>p]:mb-0"
+                  dangerouslySetInnerHTML={{ __html: product.description }} 
+                />
               )}
 
               {!hasVariants && product.stock > 0 && product.stock <= 10 && (
