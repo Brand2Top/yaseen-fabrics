@@ -508,7 +508,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
               {product.description && (
                 <div 
-                  className="text-zinc-600 leading-relaxed [&>p]:mb-4 last:[&>p]:mb-0"
+                  className="text-zinc-600 leading-relaxed [&>p:empty]:block [&>p:empty]:min-h-[1.5rem]"
                   dangerouslySetInnerHTML={{ __html: product.description }} 
                 />
               )}
