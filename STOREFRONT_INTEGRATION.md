@@ -94,6 +94,7 @@ interface Category {
   is_featured: boolean;
   products_count: number;
   image: { id: number; url: string } | null;
+  secondary_image: { id: number; url: string } | null; // optional second image (e.g. banner)
   created_at: string; // ISO 8601
   updated_at: string;
 }
@@ -134,15 +135,15 @@ Returns a **paginated** list of active products.
 
 #### Query params
 
-| Param         | Type    | Default  | Values                                                                     |
-| ------------- | ------- | -------- | -------------------------------------------------------------------------- |
-| `search`      | string  | —        | Searches name + description                                                |
-| `category_id` | integer | —        | Filter by category ID                                                      |
-| `is_featured` | boolean | —        | Featured products only                                                     |
-| `min_price`   | number  | —        | Price floor (inclusive)                                                    |
-| `max_price`   | number  | —        | Price ceiling (inclusive)                                                  |
-| `sort`        | string  | `newest` | `newest` `oldest` `price_asc` `price_desc` `rating` `name_asc` `name_desc` |
-| `per_page`    | integer | `15`     | 1–100                                                                      |
+| Param         | Type    | Default  | Values                                                                             |
+| ------------- | ------- | -------- | ---------------------------------------------------------------------------------- |
+| `search`      | string  | —        | Searches name + description                                                        |
+| `category_id` | integer | —        | Filter to products linked to this category (matches any of a product's categories) |
+| `is_featured` | boolean | —        | Featured products only                                                             |
+| `min_price`   | number  | —        | Price floor (inclusive)                                                            |
+| `max_price`   | number  | —        | Price ceiling (inclusive)                                                          |
+| `sort`        | string  | `newest` | `newest` `oldest` `price_asc` `price_desc` `rating` `name_asc` `name_desc`         |
+| `per_page`    | integer | `15`     | 1–100                                                                              |
 
 #### Request examples
 
@@ -169,7 +170,7 @@ interface Product {
   is_featured: boolean;
   average_rating: number | null; // rounded to nearest 0.5
   reviews_count: number;
-  category: Category | null;
+  categories: Category[]; // a product can belong to multiple categories
   featured_image: { id: number; url: string } | null;
   gallery: { id: number; url: string }[]; // only on show
   reviews: ProductReview[]; // only on show
@@ -181,6 +182,11 @@ interface Product {
 ```
 
 `gallery`, `reviews`, `variants`, and `notes` are **not included** in list responses — only in the single-product response.
+
+> `categories` is always present (list and detail). The nested category objects carry
+> `id`, `name`, `slug`, `description`, `is_featured` but **omit** `image` /
+> `secondary_image` and report `products_count: 0` — fetch `/api/categories` if you
+> need full category detail. A product always has at least one category.
 
 ---
 
@@ -244,7 +250,7 @@ interface ProductReview {
   phone: string | null;
   rating: number | null; // 0.5 increments, 0.5–5.0
   message: string | null;
-  status: "Approved";
+  status: "Approved"; // only Approved reviews are returned to the storefront
   created_at: string;
 }
 
@@ -255,6 +261,26 @@ interface ProductNote {
   status: "Public"; // only Public notes are included on the storefront show endpoint
   created_at: string;
   updated_at: string;
+}
+```
+
+#### Variant pricing — effective price
+
+Checkout charges (and `promotions/validate` previews) the variant's effective unit
+price using this exact rule — mirror it on the storefront so the displayed price
+always matches what the customer is charged:
+
+```ts
+function effectiveUnitPrice(
+  product: Product,
+  variant: ProductVariant | null,
+): number {
+  // A variant with its own price uses its own variant-level discount.
+  if (variant && variant.price !== null) {
+    return variant.discounted_price ?? variant.price;
+  }
+  // Otherwise (no variant, or variant.price === null) inherit the product price.
+  return product.discounted_price ?? product.price;
 }
 ```
 
@@ -299,14 +325,18 @@ GET /api/categories/electronics/products?search=headphones&min_price=20&max_pric
   "links": { ... },
   "meta":  { ... },
   "category": {
-    "id":          1,
-    "name":        "Electronics",
-    "slug":        "electronics",
-    "description": "All things tech",
-    "image":       "https://api.yourdomain.com/storage/yaseen/media/..."
+    "id":              1,
+    "name":            "Electronics",
+    "slug":            "electronics",
+    "description":     "All things tech",
+    "image":           "https://api.yourdomain.com/storage/yaseen/media/...",
+    "secondary_image": "https://api.yourdomain.com/storage/yaseen/media/..."
   }
 }
 ```
+
+> Note: inside this `category` block, `image` / `secondary_image` are plain URL
+> strings (or `null`), not `{ id, url }` objects like the standalone Category resource.
 
 The `category` field at the top level gives you the page header data (name, description, banner image) without a second request.
 
@@ -482,7 +512,9 @@ interface ReviewPayload {
 
 #### Response — `201`
 
-Returns the created review (status will be `Pending` until admin approves).
+Returns the created review. Reviews are **auto-approved** (`status: "Approved"`) and
+appear on the storefront immediately. Admins can later un-publish one by setting its
+status to `Pending` or `Rejected` in the CMS.
 
 ---
 
@@ -524,6 +556,10 @@ interface ValidateResponse {
   subtotal: number;
 }
 ```
+
+> Inactive/unavailable products in the cart are ignored when computing the preview
+> (they can't be checked out anyway), so the returned `subtotal` reflects only
+> purchasable items.
 
 #### Error codes
 
@@ -612,15 +648,27 @@ interface CheckoutResponse {
 
 #### Error responses
 
-**`422`** — validation failure or stock/variant errors:
+**`422`** — validation failure or stock/variant errors. Stock/availability problems
+are reported under `errors.items`:
 
 ```json
 {
+  "message": "Product 'Classic Tee' has only 2 items in stock.",
   "errors": {
     "items": ["Product 'Classic Tee' has only 2 items in stock."]
   }
 }
 ```
+
+Possible `errors.items` messages:
+
+- `"Product '…' has only N items in stock."` / `"Variant #ID of '…' has only N items in stock."`
+- `"This product is no longer available for purchase."` — the product was deactivated/removed
+- `"A variant of '…' is no longer available."` — the selected variant was deactivated
+- `"Variant does not belong to product '…'."` — mismatched `product_variant_id`
+
+The whole order is rejected atomically — if any item fails, **no** stock is deducted
+and no order is created.
 
 #### Full checkout flow
 
@@ -724,7 +772,7 @@ const data = await apiFetch<Paginated<Product>>(
 
 ## 13. Image URLs
 
-All `url` fields in `featured_image`, `gallery`, `image`, and variant `image` are absolute URLs ready to use directly in `<Image>` or `<img>` tags.
+All `url` fields in `featured_image`, `gallery`, `image`, `secondary_image`, and variant `image` are absolute URLs ready to use directly in `<Image>` or `<img>` tags.
 
 ```ts
 // Pattern: {API_BASE}/storage/{tenant_id}/media/{filename}

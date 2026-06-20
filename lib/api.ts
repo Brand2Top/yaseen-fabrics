@@ -2,6 +2,7 @@ import { getAdminToken } from './auth'
 import type {
   AdminCategoryFilters,
   AdminProductFilters,
+  CategoryFilters,
   AdminReview,
   ApiCategory,
   ApiListResponse,
@@ -124,10 +125,17 @@ export async function getFeaturedProducts(): Promise<ApiListResponse<ApiProduct>
 // ─── Public: Categories ───────────────────────────────────────────────────────
 
 export async function getCategories(
-  featuredOnly = false
-): Promise<ApiListResponse<ApiCategory>> {
-  const url = `${BASE_URL}/api/categories${featuredOnly ? '?is_featured=1' : ''}`
-  const res = await fetch(url, { headers: buildHeaders(), cache: 'no-store' })
+  filters: CategoryFilters = {}
+): Promise<ApiPaginatedResponse<ApiCategory>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  }
+  const qs = params.toString()
+  const res = await fetch(`${BASE_URL}/api/categories${qs ? `?${qs}` : ''}`, {
+    headers: buildHeaders(),
+    cache: 'no-store',
+  })
   return handleResponse(res)
 }
 

@@ -85,7 +85,7 @@ function ProductCard({ product }: { product: ApiProduct }) {
 
           <div className="p-6">
             <p className="text-xs text-zinc-600 uppercase tracking-widest mb-2 font-medium">
-              {product.category.name}
+              {product.categories?.[0]?.name}
             </p>
             <h3 className="font-serif text-lg font-medium text-zinc-900 mb-2 line-clamp-2 hover:text-rose-900 transition-colors duration-300">
               {product.name}

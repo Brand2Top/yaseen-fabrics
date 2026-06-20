@@ -13,6 +13,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { getProduct, postReview, getCategoryProducts } from '@/lib/api'
+import { primaryCategory } from '@/lib/utils'
 import type {
   ApiProductDetail,
   ApiProduct,
@@ -88,7 +89,7 @@ function ReviewForm({
         ...(message.trim() && { message: message.trim() }),
       })
       onReviewAdded(newReview)
-      toast.success('Review submitted! It will appear once approved.')
+      toast.success('Thank you! Your review has been posted.')
       setName('')
       setEmail('')
       setRating(null)
@@ -246,8 +247,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           setSelectedValues({})
           setQuantity(1)
 
-          if (data.category?.slug) {
-            getCategoryProducts(data.category.slug, { per_page: 9 })
+          const cat = primaryCategory(data)
+          if (cat?.slug) {
+            getCategoryProducts(cat.slug, { per_page: 9 })
               .then((res) => {
                 if (!cancelled) {
                   setSimilarProducts(res.data.filter((p) => p.id !== data.id))
@@ -284,6 +286,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       </div>
     )
   }
+
+  const category = primaryCategory(product)
 
   const allImages = [
     ...(product.featured_image ? [product.featured_image] : []),
@@ -381,13 +385,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <Link href="/" className="hover:text-zinc-900">Home</Link>
             <span>/</span>
             <Link href="/shop" className="hover:text-zinc-900">Collections</Link>
-            <span>/</span>
-            <Link
-              href={`/shop?category=${product.category?.slug}`}
-              className="hover:text-zinc-900"
-            >
-              {product.category?.name}
-            </Link>
+            {category && (
+              <>
+                <span>/</span>
+                <Link
+                  href={`/shop?category=${category.slug}`}
+                  className="hover:text-zinc-900"
+                >
+                  {category.name}
+                </Link>
+              </>
+            )}
             <span>/</span>
             <span className="text-zinc-900 line-clamp-1">{product.name}</span>
           </div>
@@ -451,7 +459,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1 pr-4">
                   <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2 font-medium">
-                    {product.category?.name}
+                    {category?.name}
                   </p>
                   <h1 className="font-serif text-3xl text-zinc-900 mb-3">{product.name}</h1>
 
@@ -790,10 +798,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="flex items-baseline justify-between mb-8">
               <h2 className="font-serif text-2xl text-zinc-900">You May Also Like</h2>
               <Link
-                href={`/shop?category=${product.category?.slug}`}
+                href={`/shop?category=${category?.slug}`}
                 className="text-sm text-rose-900 hover:underline font-medium"
               >
-                View all {product.category?.name} →
+                View all {category?.name} →
               </Link>
             </div>
 

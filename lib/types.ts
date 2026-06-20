@@ -15,16 +15,22 @@ export interface ApiCategory {
   is_featured: boolean
   products_count: number
   image?: ApiImage | null
+  secondary_image?: ApiImage | null
   created_at?: string
   updated_at?: string
 }
 
 // ─── Product ──────────────────────────────────────────────────────────────────
 
+// Nested category on a product. Per the API, these carry id/name/slug/description/
+// is_featured but omit image/secondary_image and report products_count: 0 —
+// fetch /api/categories for full category detail.
 export interface ApiProductCategory {
   id: number
   name: string
   slug: string
+  description?: string | null
+  is_featured?: boolean
 }
 
 export interface ApiProduct {
@@ -38,7 +44,8 @@ export interface ApiProduct {
   is_featured: boolean
   average_rating: number | null
   reviews_count: number
-  category: ApiProductCategory
+  // A product can belong to multiple categories; always present with at least one.
+  categories: ApiProductCategory[]
   featured_image?: ApiImage | null
 }
 
@@ -137,6 +144,21 @@ export interface ProductFilters {
 
 export interface AdminProductFilters extends ProductFilters {
   is_active?: 1 | 0
+}
+
+export type CategorySortOption =
+  | 'newest'
+  | 'oldest'
+  | 'alpha_asc'
+  | 'alpha_desc'
+  | 'most_products'
+
+export interface CategoryFilters {
+  search?: string
+  is_featured?: 1 | 0
+  sort?: CategorySortOption
+  per_page?: number
+  page?: number
 }
 
 export interface AdminCategoryFilters {
@@ -545,12 +567,15 @@ export interface CreateVariantBody {
 
 // ─── Category Products ────────────────────────────────────────────────────────
 
+// Inside the category-products response, image / secondary_image are plain URL
+// strings (or null) — not { id, url } objects like the standalone Category resource.
 export interface ApiCategoryHeader {
   id: number
   name: string
   slug: string
   description?: string | null
   image?: string | null
+  secondary_image?: string | null
 }
 
 export interface ApiCategoryProductsResponse extends ApiPaginatedResponse<ApiProduct> {

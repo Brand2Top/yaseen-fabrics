@@ -378,7 +378,7 @@ function ProductsSection({
                         </button>
                       </div>
                     </div>
-                    <p className="text-[10px] uppercase tracking-luxury text-rose-900/70 mb-1">{p.category?.name}</p>
+                    <p className="text-[10px] uppercase tracking-luxury text-rose-900/70 mb-1">{p.categories?.[0]?.name}</p>
                     <h3 className="font-display text-xl text-zinc-900 mb-1 group-hover:text-rose-900 transition-colors duration-300 line-clamp-1">
                       {p.name}
                     </h3>
